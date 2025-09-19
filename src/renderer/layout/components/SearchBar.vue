@@ -219,9 +219,17 @@ const goBack = () => {
 const hotSearchKeyword = ref(t('comp.searchBar.searchPlaceholder'));
 const hotSearchValue = ref('');
 const loadHotSearchKeyword = async () => {
-  const { data } = await getSearchKeyword();
-  hotSearchKeyword.value = data.data.showKeyword;
-  hotSearchValue.value = data.data.realkeyword;
+  try {
+    const { data } = await getSearchKeyword();
+    const kw = (data as any)?.data?.showKeyword;
+    const real = (data as any)?.data?.realkeyword;
+    if (kw) hotSearchKeyword.value = kw;
+    if (real) hotSearchValue.value = real;
+  } catch (e) {
+    // 在 Web 环境下，接口偶发失败时使用占位词，避免空白和报错
+    console.warn('加载热搜关键词失败，使用占位词');
+    hotSearchKeyword.value = t('comp.searchBar.searchPlaceholder');
+  }
 };
 
 const loadPage = async () => {
@@ -245,7 +253,14 @@ watchEffect(() => {
 });
 
 const restartApp = () => {
-  window.electron.ipcRenderer.send('restart');
+  if (isElectron) {
+    // Electron 桌面端可安全重启
+    // @ts-ignore
+    window.electron?.ipcRenderer?.send?.('restart');
+  } else {
+    // Web 环境降级为刷新页面
+    window.location.reload();
+  }
 };
 
 const toLogin = () => {
