@@ -10,7 +10,7 @@
   <a href="#">
     <img src="https://img.shields.io/badge/QQ频道-MelodySync-blue?style=for-the-badge&color=yellow" alt="加入频道">
   </a>
-  <a href="https://t.me/+9efsKRuvKBk2NWVl">
+  <a href="#">
     <img src="https://img.shields.io/badge/Melody%20Sync-blue?style=for-the-badge&logo=telegram&logoColor=white&label=Telegram" alt="Telegram">
   </a>
    <a href="http://melodysync.xo.je/">
