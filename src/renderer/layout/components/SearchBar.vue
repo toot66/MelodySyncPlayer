@@ -271,7 +271,8 @@ const toLogin = () => {
 onMounted(() => {
   loadHotSearchKeyword();
   loadPage();
-  checkForUpdates();
+  // 仅在 Electron 环境下检查更新，避免 Web 端请求 GitHub API
+  isElectron && checkForUpdates();
   isElectron && initZoomFactor();
 });
 
