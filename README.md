@@ -7,7 +7,7 @@
   <a href="https://github.com/toot66/MelodySyncPlayer/releases">
     <img src="https://img.shields.io/github/v/release/toot66/MelodySyncPlayer?style=for-the-badge&logo=github&label=Release&logoColor=white&color=1a67af" alt="GitHub release">
   </a>
-  <a href="https://pd.qq.com/s/cs056n33q?b=5">
+  <a href="#">
     <img src="https://img.shields.io/badge/QQ频道-MelodySync-blue?style=for-the-badge&color=yellow" alt="加入频道">
   </a>
   <a href="https://t.me/+9efsKRuvKBk2NWVl">
