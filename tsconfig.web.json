@@ -1,0 +1,40 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  "include": [
+    "src/preload/*.d.ts",
+    "src/renderer/**/*",
+    "src/renderer/**/*.vue",
+    "src/i18n/**/*",
+    "src/main/modules/config.ts",
+    "src/main/modules/shortcuts.ts"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "jsx": "preserve",
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "types": [
+      "naive-ui/volar",
+      "./src/renderer/auto-imports.d.ts",
+      "./src/renderer/components.d.ts"
+    ],
+    "paths": {
+      "@/*": ["src/renderer/*"],
+      "@renderer/*": ["src/renderer/*"],
+      "@main/*": ["src/main/*"],
+      "@i18n/*": ["src/i18n/*"]
+    }
+  }
+}

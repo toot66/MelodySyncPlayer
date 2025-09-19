@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "MelodySync",
+    "slug": "melodysync",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0b1220"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0b1220"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "WEB_APP_URL": "http://192.168.1.8:5173/"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-web-browser"
+    ]
+  }
+}

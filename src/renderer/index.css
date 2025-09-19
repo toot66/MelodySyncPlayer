@@ -1,0 +1,210 @@
+/* ./src/index.css */
+
+/*! @import */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Modern button style */
+.action-button,
+.toggle-button {
+  @apply relative overflow-hidden rounded-full flex items-center justify-center transition-transform duration-200 bg-light-200 dark:bg-dark-200 hover:bg-light-300 dark:hover:bg-dark-300 shadow-md hover:shadow-lg;
+}
+
+.action-button::after,
+.toggle-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, theme('colors.green.400'), theme('colors.blue.400'));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.action-button:hover::after,
+.toggle-button:hover::after {
+  opacity: 0.2;
+}
+
+.action-button:hover,
+.toggle-button:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+.action-button .icon,
+.toggle-button .icon {
+  @apply text-lg text-gray-600 dark:text-gray-300 transition-colors;
+}
+
+.action-button.collected .icon {
+  @apply text-red-500;
+}
+
+.action-button.hover-green:hover .icon,
+.toggle-button.hover-green:hover .icon {
+  @apply text-green-500;
+}
+
+.settings-section {
+  @apply mb-6 scroll-mt-4;
+
+  &-title {
+    @apply sticky top-0 z-10 text-base font-semibold mb-4 px-2 py-3 rounded-xl;
+    @apply bg-white/60 dark:bg-dark/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur;
+    @apply border border-gray-200/70 dark:border-gray-700/70 shadow-soft;
+    background-image: linear-gradient(135deg, var(--brand-accent-start), var(--brand-accent-end));
+    background-clip: padding-box;
+    -webkit-background-clip: padding-box;
+    color: var(--text-color);
+  }
+
+  &-content {
+    @apply space-y-4;
+  }
+}
+
+/* Carded set-item blocks */
+.set-item {
+  @apply rounded-2xl p-4 bg-light dark:bg-dark border border-gray-200 dark:border-gray-700 shadow-soft;
+}
+
+.n-image img {
+  background-color: #111111;
+  width: 100%;
+}
+
+.n-slider-handle-indicator--top {
+  @apply bg-transparent text-2xl px-2 py-1 shadow-none mb-0 text-white bg-dark-300 dark:bg-gray-800 bg-opacity-80 rounded-lg  !important;
+  mix-blend-mode: difference !important;
+}
+
+.v-binder-follower-container:has(.n-slider-handle-indicator--top) {
+  z-index: 999999999 !important;
+}
+
+.text-el {
+  @apply overflow-ellipsis overflow-hidden whitespace-nowrap;
+}
+
+.theme-dark {
+  --bg-color: #000;
+  --text-color: #fff;
+  --bg-color-100: #161616;
+  --bg-color-200: #2d2d2d;
+  --bg-color-300: #3d3d3d;
+  --text-color: #f8f9fa;
+  --text-color-100: #e9ecef;
+  --text-color-200: #dee2e6;
+  --text-color-300: #dde0e3;
+  --primary-color: #22c55e;
+}
+
+.theme-light {
+  --bg-color: #fff;
+  --text-color: #000;
+  --bg-color-100: #f8f9fa;
+  --bg-color-200: #e9ecef;
+  --bg-color-300: #dee2e6;
+  --text-color: #000;
+  --text-color-100: #161616;
+  --text-color-200: #2d2d2d;
+  --text-color-300: #3d3d3d;
+  --primary-color: #22c55e;
+}
+
+.theme-gray {
+  --bg-color: #f8f9fa;
+  --text-color: #000;
+  --bg-color-100: #e9ecef;
+  --bg-color-200: #dee2e6;
+  --bg-color-300: #dde0e3;
+  --text-color: #000;
+  --text-color-100: #161616;
+  --text-color-200: #2d2d2d;
+  --text-color-300: #3d3d3d;
+  --primary-color: #22c55e;
+}
+
+:root {
+  --text-color: #000000dd;
+  --brand-primary: #22c55e; /* emerald */
+  --brand-secondary: #6366f1; /* indigo */
+  --brand-accent-start: #a5b4fc; /* indigo-200 */
+  --brand-accent-end: #5eead4; /* teal-300 */
+}
+
+:root[class='dark'] {
+  --text-color: #ffffffdd;
+  --brand-primary: #34d399;
+  --brand-secondary: #818cf8;
+  --brand-accent-start: #818cf8;
+  --brand-accent-end: #6ee7b7;
+}
+
+/* Global icon style */
+.iconfont {
+  @apply transition-transform duration-150 ease-in-out;
+}
+.iconfont:hover {
+  transform: scale(1.15);
+}
+
+/* ===== Modern global look & feel enhancements ===== */
+
+/* Glass panels */
+.glass {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+.dark .glass {
+  background: rgba(17, 17, 17, 0.55);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Card style */
+.ui-card {
+  @apply rounded-2xl p-4 bg-light dark:bg-black;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+/* Chip/Pill */
+.ui-chip {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs;
+  background: linear-gradient(135deg, var(--brand-accent-start), var(--brand-accent-end));
+  color: #0b1220;
+}
+.dark .ui-chip { color: #0a0f1a; }
+
+/* Fancy scrollbars */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(165,180,252,.5), rgba(52,211,153,.5));
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(165,180,252,.8), rgba(52,211,153,.8));
+}
+
+/* Gradient text helper */
+.text-gradient {
+  background: linear-gradient(135deg, var(--brand-secondary), var(--brand-primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Subtle page background gradient (used by layout) */
+.bg-app-gradient {
+  background: radial-gradient(1200px 600px at -10% -10%, rgba(165,180,252,.20), transparent 60%),
+              radial-gradient(800px 400px at 110% -20%, rgba(52,211,153,.15), transparent 50%),
+              radial-gradient(1000px 500px at 50% 120%, rgba(16,185,129,.12), transparent 55%);
+}
+
+/* Soft shadows */
+.shadow-soft { box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+.shadow-soft-lg { box-shadow: 0 18px 50px rgba(0,0,0,.12); }
