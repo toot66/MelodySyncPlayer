@@ -116,6 +116,8 @@ const onRegisterError = (err: string) => {
   /* glass background handled by .glass; adjust transparency per theme */
   max-height: 78vh; /* avoid clipping inside parent container */
   overflow: auto;   /* internal scroll if content grows */
+  position: relative; /* create stacking context to sit above followers */
+  z-index: 10;
 }
 
 .title {
@@ -168,5 +170,13 @@ const onRegisterError = (err: string) => {
 }
 :deep(.dark .n-tabs .n-tabs-tab.n-tabs-tab--active) {
   color: #0a0f1a !important;
+}
+
+/* 防止 Naive UI 的浮层在登录页覆盖输入区（仅作用于登录页） */
+:deep(.v-binder-follower-container) {
+  pointer-events: none !important;
+}
+:deep(.v-binder-follower-container *) {
+  pointer-events: none !important;
 }
 </style>
