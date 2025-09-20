@@ -32,19 +32,25 @@ const loginRouter = {
     icon: 'icon-Home',
     back: true
   },
-  component: () => import('@/views/login/index.vue')
+  redirect: '/auth/simple'
 };
 const githubCallbackRouter = {
   path: '/auth/github/callback',
   name: 'githubCallback',
   component: () => import('@/views/login/GithubCallback.vue')
 };
+const simpleAuthRouter = {
+  path: '/auth/simple',
+  name: 'simpleAuth',
+  meta: { title: '简单登录' },
+  component: () => import('@/views/login/SimpleLogin.vue')
+};
 
 const routes = [
   {
     path: '/',
     component: AppLayout,
-    children: [...homeRouter, loginRouter, githubCallbackRouter, ...otherRouter]
+    children: [...homeRouter, loginRouter, githubCallbackRouter, simpleAuthRouter, ...otherRouter]
   },
   {
     path: '/lyric',
