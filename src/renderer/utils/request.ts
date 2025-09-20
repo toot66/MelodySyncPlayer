@@ -10,11 +10,25 @@ let setData: any = null;
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   retryCount?: number;
   noRetry?: boolean;
+  apiIndex?: number; // 当前使用的 API_LIST 下标（仅浏览器端）
 }
 
-const baseURL = window.electron
+// 解析多地址列表（浏览器端容灾）
+const API_LIST: string[] = (
+  (import.meta as any)?.env?.VITE_API_LIST as string | undefined
+)
+  ?.split(',')
+  .map((s) => s.trim())
+  .filter(Boolean) || [];
+
+const getBrowserBaseURL = (index = 0): string => {
+  if (API_LIST.length > 0) return API_LIST[Math.min(index, API_LIST.length - 1)] || '';
+  return (((import.meta as any)?.env?.VITE_API as string | undefined) ?? '') as string;
+};
+
+const baseURL: string = window.electron
   ? `http://127.0.0.1:${setData?.musicApiPort}`
-  : import.meta.env.VITE_API;
+  : getBrowserBaseURL(0);
 
 const request = axios.create({
   baseURL,
@@ -31,9 +45,13 @@ const RETRY_DELAY = 500;
 request.interceptors.request.use(
   (config: CustomAxiosRequestConfig) => {
     setData = getSetData();
-    config.baseURL = window.electron
-      ? `http://127.0.0.1:${setData?.musicApiPort}`
-      : import.meta.env.VITE_API;
+    if (window.electron) {
+      config.baseURL = `http://127.0.0.1:${setData?.musicApiPort}`;
+    } else {
+      const idx = typeof config.apiIndex === 'number' ? config.apiIndex : 0;
+      config.apiIndex = idx;
+      config.baseURL = getBrowserBaseURL(idx);
+    }
     // 只在retryCount未定义时初始化为0
     if (config.retryCount === undefined) {
       config.retryCount = 0;
@@ -98,7 +116,7 @@ request.interceptors.response.use(
       config.retryCount = 3;
     }
 
-    // 检查是否还可以重试
+    // 先按单地址重试逻辑处理
     if (
       config.retryCount !== undefined &&
       config.retryCount < MAX_RETRIES &&
@@ -108,11 +126,24 @@ request.interceptors.response.use(
       config.retryCount++;
       console.error(`请求重试第 ${config.retryCount} 次`);
 
-      // 延迟重试
       await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-
-      // 重新发起请求
       return request(config);
+    }
+
+    // 浏览器端：尝试切换到下一个 API 地址
+    if (!window.electron && API_LIST.length > 1) {
+      const current = typeof config.apiIndex === 'number' ? config.apiIndex : 0;
+      if (current + 1 < API_LIST.length) {
+        const nextIndex = current + 1;
+        config.apiIndex = nextIndex;
+        config.baseURL = getBrowserBaseURL(nextIndex);
+        // 重置重试计数，换线路立即重试一次
+        config.retryCount = 0;
+        console.warn(
+          `[API FAILOVER] 切换至第 ${nextIndex + 1}/${API_LIST.length} 个地址: ${config.baseURL}`
+        );
+        return request(config);
+      }
     }
 
     console.error(`重试${MAX_RETRIES}次后仍然失败`);

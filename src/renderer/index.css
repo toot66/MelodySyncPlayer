@@ -81,7 +81,9 @@
 }
 
 .v-binder-follower-container:has(.n-slider-handle-indicator--top) {
-  z-index: 999999999 !important;
+  /* Avoid overlay blocking inputs on pages like Login */
+  z-index: 9999 !important;
+  pointer-events: none !important;
 }
 
 .text-el {

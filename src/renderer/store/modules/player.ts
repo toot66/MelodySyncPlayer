@@ -23,6 +23,16 @@ const { message } = createDiscreteApi(['message']);
 
 const preloadingSounds = ref<Howl[]>([]);
 
+// 避免 HTTPS 页面播放 HTTP 音频被浏览器拦截（Mixed Content）
+function normalizeStreamUrl(url?: string | null): string | null {
+  if (!url) return url ?? null;
+  try {
+    return url.replace(/^http:\/\//i, 'https://');
+  } catch {
+    return url;
+  }
+}
+
 function getLocalStorageItem<T>(key: string, defaultValue: T): T {
   try {
     const item = localStorage.getItem(key);
@@ -89,7 +99,7 @@ export const getSongUrl = async (
 
   try {
     if (songData.playMusicUrl) {
-      return songData.playMusicUrl;
+      return normalizeStreamUrl(songData.playMusicUrl);
     }
 
     if (songData.source === 'bilibili' && songData.bilibiliData) {
@@ -100,13 +110,13 @@ export const getSongUrl = async (
             songData.bilibiliData.bvid,
             songData.bilibiliData.cid
           );
-          return songData.playMusicUrl;
+          return normalizeStreamUrl(songData.playMusicUrl) as string;
         } catch (error) {
           console.error('重启后获取B站音频URL失败:', error);
           return '';
         }
       }
-      return songData.playMusicUrl || '';
+      return normalizeStreamUrl(songData.playMusicUrl) as string;
     }
 
     // ==================== 自定义API最优先 ====================
@@ -147,7 +157,7 @@ export const getSongUrl = async (
         ) {
           console.log('自定义API解析成功！');
           if (isDownloaded) return customResult.data.data as any;
-          return customResult.data.data.url;
+          return normalizeStreamUrl(customResult.data.data.url) as string;
         } else {
           // 自定义API失败，给出提示，然后继续走默认流程
           console.log('自定义API解析失败，将使用默认降级流程...');
@@ -166,7 +176,7 @@ export const getSongUrl = async (
         const res = await getParsingMusicUrl(numericId, cloneDeep(songData));
         console.log('res', res);
         if (res && res.data && res.data.data && res.data.data.url) {
-          return res.data.data.url;
+          return normalizeStreamUrl(res.data.data.url) as string;
         }
         // 如果自定义音源解析失败，继续使用正常的获取流程
         console.warn('自定义音源解析失败，使用默认音源');
@@ -187,23 +197,23 @@ export const getSongUrl = async (
         console.log(`官方URL无效 (无URL: ${hasNoUrl}, 试听: ${isTrial})，进入内置备用解析...`);
         const res = await getParsingMusicUrl(numericId, cloneDeep(songData));
         if (isDownloaded) return res?.data?.data as any;
-        return res?.data?.data?.url || null;
+        return (normalizeStreamUrl(res?.data?.data?.url) as string) || null;
       }
 
       console.log('官方API解析成功！');
       if (isDownloaded) return songDetail as any;
-      return songDetail.url;
+      return normalizeStreamUrl(songDetail.url) as string;
     }
 
     console.log('官方API返回数据结构异常，进入内置备用解析...');
     const res = await getParsingMusicUrl(numericId, cloneDeep(songData));
     if (isDownloaded) return res?.data?.data as any;
-    return res?.data?.data?.url || null;
+    return (normalizeStreamUrl(res?.data?.data?.url) as string) || null;
   } catch (error) {
     console.error('官方API请求失败，进入内置备用解析流程:', error);
     const res = await getParsingMusicUrl(numericId, cloneDeep(songData));
     if (isDownloaded) return res?.data?.data as any;
-    return res?.data?.data?.url || null;
+    return (normalizeStreamUrl(res?.data?.data?.url) as string) || null;
   }
 };
 
