@@ -669,7 +669,7 @@ export const usePlayerStore = defineStore('player', () => {
     } else if (music.source === 'bilibili' && music?.song?.ar?.[0]) {
       title += ` - ${music.song.ar[0].name}`;
     }
-    document.title = 'AlgerMusic - ' + title;
+    document.title = 'Melody Sync - 旋律同频 - ' + title;
 
     try {
       // 添加到历史记录
