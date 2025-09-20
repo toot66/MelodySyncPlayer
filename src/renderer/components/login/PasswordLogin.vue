@@ -55,6 +55,9 @@ const handleLogin = async () => {
 .input {
   width: 100%; height: 40px; padding: 0 12px; border-radius: 10px; outline: none; border: 1px solid rgba(255,255,255,0.12);
   background: transparent; color: #fff;
+  position: relative; z-index: 20; /* 防止被浮层覆盖 */
 }
 .btn { width: 70%; height: 40px; margin: 12px auto 0; display: block; }
+/* 居中按钮文本（Naive UI 按钮内容槽） */
+:deep(.n-button__content) { justify-content: center; width: 100%; }
 </style>
