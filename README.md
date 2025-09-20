@@ -7,14 +7,12 @@
   <a href="https://github.com/toot66/MelodySyncPlayer/releases">
     <img src="https://img.shields.io/github/v/release/toot66/MelodySyncPlayer?style=for-the-badge&logo=github&label=Release&logoColor=white&color=1a67af" alt="GitHub release">
   </a>
-  <a href="#">
-    <img src="https://img.shields.io/badge/QQ频道-MelodySync-blue?style=for-the-badge&color=yellow" alt="加入频道">
+  <!-- 如需开启社群入口，请把链接替换成你的实际地址 -->
+  <a href="https://melodysyncplayer.pages.dev/">
+    <img src="https://img.shields.io/badge/Web-%E5%9C%A8%E7%BA%BF%E4%BD%93%E9%AA%8C-22c55e?style=for-the-badge" alt="在线体验">
   </a>
-  <a href="#">
-    <img src="https://img.shields.io/badge/Melody%20Sync-blue?style=for-the-badge&logo=telegram&logoColor=white&label=Telegram" alt="Telegram">
-  </a>
-   <a href="http://melodysync.xo.je/">
-    <img src="https://img.shields.io/badge/%E9%A1%B9%E7%9B%AE%E6%8D%90%E8%B5%A0-blue?style=for-the-badge&logo=telegram&logoColor=pink&color=pink&label=%E8%B5%9E%E5%8A%A9" alt="赞助">
+  <a href="http://melodysync.xo.je/">
+    <img src="https://img.shields.io/badge/%E9%A1%B9%E7%9B%AE%E6%8D%90%E8%B5%A0-pink?style=for-the-badge&logoColor=pink&label=%E8%B5%9E%E5%8A%A9" alt="赞助">
   </a>
 </div>
 </div>
@@ -22,7 +20,8 @@
   <a href="https://hellogithub.com/repository/607b849c598d48e08fe38789d156ebdc" target="_blank"><img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=607b849c598d48e08fe38789d156ebdc&claim_uid=ObuMXUfeHBmk9TI&theme=neutral" alt="Featured｜HelloGitHub" width="160" height="32" /></a>
 </div>
 
-[项目下安装以及常用问题文档](https://www.yuque.com/alger-pfg5q/ip4f1a/bmgmfmghnhgwghkm?singleDoc#)
+<!-- 文档入口：如需外链文档可在此处替换为你的地址 -->
+[项目使用与常见问题](#环境配置)
 
 主要功能如下
 
@@ -59,7 +58,7 @@
 
 ## 预览地址
 
-[http://music.alger.fun/](http://music.alger.fun/)
+[https://melodysyncplayer.pages.dev/](https://melodysyncplayer.pages.dev/)
 
 ## 软件截图
 
@@ -79,7 +78,7 @@ npm run dev
 
 ## 环境配置
 
-为方便自定义 GitHub 仓库与网页模式的后端地址，新增了可配置的环境变量：
+为方便 Web 版本运行，需要为浏览器端提供可访问的后端 API（如 Render 上部署的 NeteaseCloudMusicApi）。同时支持自定义 GitHub 仓库信息。
 
 1) 本地环境文件（被 git 忽略）
 
@@ -100,8 +99,16 @@ VITE_GH_REPO=MelodySyncPlayer
 # 可选：GitHub Token（提高 API 速率限制）
 # VITE_GITHUB_TOKEN=ghp_xxx
 
-# 仅网页模式需要：音乐后端 API（NeteaseCloudMusicApi 等）
+# 仅网页模式需要：音乐后端 API（NeteaseCloudMusicApi 或兼容实现）
+# 本地开发可指向本机或你的云端服务
 # VITE_API=http://127.0.0.1:3000
+
+# 云端部署（Cloudflare Pages）请在控制台设置环境变量：
+#   Name: VITE_API
+#   Value: https://neteasemusic-api.onrender.com   ← 你的后端域名
+# 同时确认：
+#   Build command: npm run build
+#   Output directory: out/renderer
 ```
 
 2) 自动发布到 GitHub（可选）
@@ -126,10 +133,9 @@ npm run build:win
 
 ## 赞赏☕️
 
-[赞赏列表](http://melodysync.xo.je/)
 | 微信赞赏 | 支付宝赞赏 |
-| :--------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
-| <img src="https://github.com/algerkong/algerkong/blob/main/wechat.jpg?raw=true" alt="WeChat QRcode" width=200> <br><small>喝点咖啡继续干</small> | <img src="https://github.com/algerkong/algerkong/blob/main/alipay.jpg?raw=true" alt="Wechat QRcode" width=200> <br><small>来包辣条吧~</small> |
+| :------: | :--------: |
+| <img src="./src/renderer/assets/wechat.png" alt="WeChat QR" width=200> | <img src="./src/renderer/assets/alipay.png" alt="Alipay QR" width=200> |
 
 ## 项目统计
 
