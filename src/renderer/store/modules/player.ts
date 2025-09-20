@@ -18,15 +18,26 @@ import { getImageLinearBackground } from '@/utils/linearColor';
 import { useSettingsStore } from './settings';
 import { useUserStore } from './user';
 
+// 从环境变量读取 Worker 根地址，并去掉末尾斜杠，供音频代理兜底使用
+const AUTH_BASE_RAW = (import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined;
+const AUTH_BASE = AUTH_BASE_RAW ? AUTH_BASE_RAW.replace(/\/+$/, '') : undefined;
+
 const musicHistory = useMusicHistory();
 const { message } = createDiscreteApi(['message']);
 
 const preloadingSounds = ref<Howl[]>([]);
 
-// 避免 HTTPS 页面播放 HTTP 音频被浏览器拦截（Mixed Content）
+// 统一处理音频直链：在 Web 场景优先走 Worker 代理，确保 HTTPS + CORS + Range 透传
 function normalizeStreamUrl(url?: string | null): string | null {
   if (!url) return url ?? null;
   try {
+    // 桌面端/Electron 不需要代理；仅在浏览器环境走代理
+    const isWeb = typeof window !== 'undefined';
+    if (isWeb && AUTH_BASE) {
+      // 始终通过代理转发，提升跨源与重定向稳定性
+      return `${AUTH_BASE}/proxy/audio?url=${encodeURIComponent(url)}`;
+    }
+    // 兜底替换 http 为 https，避免混合内容
     return url.replace(/^http:\/\//i, 'https://');
   } catch {
     return url;
