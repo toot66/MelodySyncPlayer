@@ -51,7 +51,9 @@ import { useRouter } from 'vue-router';
 import { useMessage } from 'naive-ui';
 import { useUserStore } from '@/store/modules/user';
 
-const authBase = (import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined;
+const AUTH_BASE_RAW = (import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined;
+// 去掉末尾斜杠，避免 //api/*
+const authBase = AUTH_BASE_RAW ? AUTH_BASE_RAW.replace(/\/+$/, '') : undefined;
 const router = useRouter();
 const message = useMessage();
 const userStore = useUserStore();
