@@ -1,5 +1,24 @@
 <h2 align="center">🎵 Melody Sync</h2>
 <div align="center">
+<div align="center">
+  <a href="https://github.com/toot66/MelodySyncPlayer/stargazers">
+    <img src="https://img.shields.io/github/stars/toot66/MelodySyncPlayer?style=for-the-badge&logo=github&label=Stars&logoColor=white&color=22c55e" alt="GitHub stars">
+  </a>
+  <a href="https://github.com/toot66/MelodySyncPlayer/releases">
+    <img src="https://img.shields.io/github/v/release/toot66/MelodySyncPlayer?style=for-the-badge&logo=github&label=Release&logoColor=white&color=1a67af" alt="GitHub release">
+  </a>
+  <!-- 如需开启社群入口，请把链接替换成你的实际地址 -->
+  <a href="https://melodysyncplayer.pages.dev/">
+    <img src="https://img.shields.io/badge/Web-%E5%9C%A8%E7%BA%BF%E4%BD%93%E9%AA%8C-22c55e?style=for-the-badge" alt="在线体验">
+  </a>
+  <a href="http://melodysync.xo.je/">
+    <img src="https://img.shields.io/badge/%E9%A1%B9%E7%9B%AE%E6%8D%90%E8%B5%A0-pink?style=for-the-badge&logoColor=pink&label=%E8%B5%9E%E5%8A%A9" alt="赞助">
+  </a>
+</div>
+</div>
+<div align="center">
+  <a href="https://hellogithub.com/repository/607b849c598d48e08fe38789d156ebdc" target="_blank"><img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=607b849c598d48e08fe38789d156ebdc&claim_uid=ObuMXUfeHBmk9TI&theme=neutral" alt="Featured｜HelloGitHub" width="160" height="32" /></a>
+</div>
 
 <!-- 文档入口：如需外链文档可在此处替换为你的地址 -->
 [项目使用与常见问题](#环境配置)
@@ -107,6 +126,34 @@ npm run build:win
 ```
 
 > 说明：应用会优先从 GitHub Releases 的 assets 列表中匹配下载文件，找不到时才按命名模板回退。
+
+## Web 端注意事项
+
+- **运行时**：Cloudflare Pages 属于浏览器环境，Electron/Node 专属 API 不可用。本项目已做降级处理（如仅 Electron 下执行更新检查、浏览器端重启指令降级为刷新等）。
+- **后端 API**：浏览器端接口基址来自 `import.meta.env.VITE_API`，必须指向公网可访问的 HTTPS 服务（示例：`https://neteasemusic-api.onrender.com`）。
+- **Cloudflare Pages 构建**：
+  - Build command：`npm run build`
+  - Output directory：`out/renderer`
+  - Environment variables：在 Production 与 Preview 都添加 `VITE_API`
+- **跨域（CORS）**：若调用接口报跨域，可在后端启用 CORS（某些备份仓库已内置）。在 Render 可通过环境变量 `ENABLE_CORS=true` 打开。
+- **登录 Cookies**：若需登录功能，请确保后端允许携带凭据（`Access-Control-Allow-Credentials: true` 等）。
+
+## 后端部署（Render）快速指引
+
+> 目标：获得一个稳定的 HTTPS API 域名，供前端 `VITE_API` 使用。
+
+1. **准备仓库**：选择一个完整可用的 NeteaseCloudMusicApi 备份仓库，Fork 到你的账号（示例：`nooblong/NeteaseCloudMusicApiBackup`）。
+2. **创建服务**：登录 [Render](https://render.com) → New → Web Service → 选择你的仓库。
+3. **配置运行**：
+   - Runtime：Node
+   - Build Command：`npm install`
+   - Start Command：`node app.js`
+   - Environment（可选）：`NODE_VERSION=18`，如需跨域加 `ENABLE_CORS=true`
+4. **部署验证**：部署完成后，访问 `https://你的服务.onrender.com/banner?type=0`、`/search/default` 等常见接口应返回 JSON。
+5. **接入前端**：把该域名配置到 Cloudflare Pages 的环境变量：
+   - Name：`VITE_API`
+   - Value：`https://你的服务.onrender.com`
+   - 保存后到 Deployments → Retry 触发重建。
 
 ## 开发文档
 
