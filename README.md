@@ -1,24 +1,4 @@
 <h2 align="center">🎵 Melody Sync</h2>
-<div align="center">
-<div align="center">
-  <a href="https://github.com/toot66/MelodySyncPlayer/stargazers">
-    <img src="https://img.shields.io/github/stars/toot66/MelodySyncPlayer?style=for-the-badge&logo=github&label=Stars&logoColor=white&color=22c55e" alt="GitHub stars">
-  </a>
-  <a href="https://github.com/toot66/MelodySyncPlayer/releases">
-    <img src="https://img.shields.io/github/v/release/toot66/MelodySyncPlayer?style=for-the-badge&logo=github&label=Release&logoColor=white&color=1a67af" alt="GitHub release">
-  </a>
-  <!-- 如需开启社群入口，请把链接替换成你的实际地址 -->
-  <a href="https://melodysyncplayer.pages.dev/">
-    <img src="https://img.shields.io/badge/Web-%E5%9C%A8%E7%BA%BF%E4%BD%93%E9%AA%8C-22c55e?style=for-the-badge" alt="在线体验">
-  </a>
-  <a href="http://melodysync.xo.je/">
-    <img src="https://img.shields.io/badge/%E9%A1%B9%E7%9B%AE%E6%8D%90%E8%B5%A0-pink?style=for-the-badge&logoColor=pink&label=%E8%B5%9E%E5%8A%A9" alt="赞助">
-  </a>
-</div>
-</div>
-<div align="center">
-  <a href="https://hellogithub.com/repository/607b849c598d48e08fe38789d156ebdc" target="_blank"><img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=607b849c598d48e08fe38789d156ebdc&claim_uid=ObuMXUfeHBmk9TI&theme=neutral" alt="Featured｜HelloGitHub" width="160" height="32" /></a>
-</div>
 
 <!-- 文档入口：如需外链文档可在此处替换为你的地址 -->
 [项目使用与常见问题](#环境配置)
