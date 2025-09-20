@@ -179,4 +179,12 @@ const onRegisterError = (err: string) => {
 :deep(.v-binder-follower-container *) {
   pointer-events: none !important;
 }
+/* 明确允许表单输入与按钮接收事件 */
+:deep(.login-page input),
+:deep(.login-page button),
+:deep(.login-page .n-button) {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 20;
+}
 </style>
