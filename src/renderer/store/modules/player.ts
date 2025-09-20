@@ -27,6 +27,21 @@ const { message } = createDiscreteApi(['message']);
 
 const preloadingSounds = ref<Howl[]>([]);
 
+// 调用 Worker 侧解析（/api/parse），用于官方直链缺失时的兜底
+async function parseFromWorker(id: number, level: string = 'higher'): Promise<string | null> {
+  if (!AUTH_BASE) return null;
+  try {
+    const url = `${AUTH_BASE}/api/parse?id=${encodeURIComponent(id)}&level=${encodeURIComponent(level)}&encodeType=flac&device=mobile`;
+    const resp = await fetch(url, { method: 'GET' });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const u = data?.data?.url || data?.url || null;
+    return u ? (normalizeStreamUrl(u) as string) : null;
+  } catch {
+    return null;
+  }
+}
+
 // 统一处理音频直链：在 Web 场景优先走 Worker 代理，确保 HTTPS + CORS + Range 透传
 function normalizeStreamUrl(url?: string | null): string | null {
   if (!url) return url ?? null;
