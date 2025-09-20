@@ -1,14 +1,39 @@
 <template>
-  <div class="password-login">
+  <div class="password-login" role="form" aria-label="用户名密码登录">
     <div class="login-title">用户名密码登录</div>
+
     <div class="field">
-      <input v-model.trim="username" class="input" placeholder="用户名" @keyup.enter="focusPassword" />
+      <label class="label" for="login-username">用户名</label>
+      <n-input
+        id="login-username"
+        v-model:value="username"
+        placeholder="请输入用户名"
+        :input-props="{ autocomplete: 'username' }"
+        @keyup.enter="focusPassword"
+        clearable
+      />
     </div>
+
     <div class="field">
-      <input v-model.trim="password" ref="pwdRef" class="input" type="password" placeholder="密码" @keyup.enter="handleLogin" />
+      <label class="label" for="login-password">密码</label>
+      <n-input
+        id="login-password"
+        v-model:value="password"
+        type="password"
+        placeholder="请输入密码"
+        :input-props="{ autocomplete: 'current-password' }"
+        @keyup.enter="handleLogin"
+        ref="pwdRef"
+        clearable
+        show-password-on="click"
+      />
     </div>
-    <n-button class="btn" type="primary" :loading="loading" @click="handleLogin">登 录</n-button>
+
+    <n-button class="btn" tertiary type="primary" :loading="loading" @click="handleLogin">
+      登 录
+    </n-button>
   </div>
+  
 </template>
 
 <script setup lang="ts">
@@ -24,10 +49,10 @@ const emit = defineEmits<Emits>();
 const username = ref('');
 const password = ref('');
 const loading = ref(false);
-const pwdRef = ref<HTMLInputElement | null>(null);
+const pwdRef = ref<any>(null);
 
 const focusPassword = () => {
-  pwdRef.value?.focus();
+  try { pwdRef.value?.focus(); } catch {}
 };
 
 const handleLogin = async () => {
@@ -49,15 +74,13 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.password-login { width: 320px; max-width: 100%; }
-.login-title { color: #fff; font-weight: 600; margin-bottom: 12px; text-align: center; }
-.field { margin: 8px 0; }
-.input {
-  width: 100%; height: 40px; padding: 0 12px; border-radius: 10px; outline: none; border: 1px solid rgba(255,255,255,0.12);
-  background: transparent; color: #fff;
-  position: relative; z-index: 20; /* 防止被浮层覆盖 */
-}
-.btn { width: 70%; height: 40px; margin: 12px auto 0; display: block; }
+.password-login { width: 360px; max-width: 100%; position: relative; z-index: 20; }
+.login-title { color: var(--text-color); font-weight: 600; margin-bottom: 12px; text-align: center; }
+.field { margin: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 12px; color: rgba(255,255,255,0.7); }
+.btn { width: 70%; height: 40px; margin: 14px auto 0; display: block; }
 /* 居中按钮文本（Naive UI 按钮内容槽） */
 :deep(.n-button__content) { justify-content: center; width: 100%; }
+/* 确保登录表单可以点击输入 */
+:deep(.n-input), :deep(.n-input input) { position: relative; z-index: 20; }
 </style>

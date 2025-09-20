@@ -106,6 +106,9 @@ const onRegisterError = (err: string) => {
   align-items: center;
   justify-content: center;
   padding: 24px 16px;
+  pointer-events: auto; /* 明确允许本区域接收事件 */
+  position: relative;
+  z-index: 999999; /* 提升整个登录页层级 */
 }
 
 .card {
@@ -117,7 +120,7 @@ const onRegisterError = (err: string) => {
   max-height: 78vh; /* avoid clipping inside parent container */
   overflow: auto;   /* internal scroll if content grows */
   position: relative; /* create stacking context to sit above followers */
-  z-index: 10;
+  z-index: 1000000; /* 确保表单位于最顶层 */
 }
 
 .title {
@@ -187,4 +190,6 @@ const onRegisterError = (err: string) => {
   position: relative;
   z-index: 20;
 }
+/* 全量兜底：登录页内所有元素允许事件（防某些外部样式继承造成的阻断） */
+:deep(.login-page *) { pointer-events: auto !important; }
 </style>
