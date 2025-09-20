@@ -4,7 +4,9 @@ import axios from 'axios';
  * Custom auth API wrapper. If VITE_AUTH_BASE is set, requests will be sent there
  * (Cloudflare Worker). Otherwise, fallback to a local demo implementation.
  */
-const AUTH_BASE = import.meta.env.VITE_AUTH_BASE as string | undefined;
+const AUTH_BASE_RAW = import.meta.env.VITE_AUTH_BASE as string | undefined;
+// 去掉末尾斜杠，避免拼接成 //api/register 导致 404
+const AUTH_BASE = AUTH_BASE_RAW ? AUTH_BASE_RAW.replace(/\/+$/, '') : undefined;
 
 interface LoginPayload {
   username: string;
