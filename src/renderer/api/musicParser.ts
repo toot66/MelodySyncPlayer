@@ -519,7 +519,8 @@ export class MusicParser {
       // 非Electron环境直接使用API请求
       if (!isElectron) {
         console.log('非Electron环境，使用API请求');
-        return await requestMusic.get<any>('/music', { params: { id } });
+        // 改为走 /api/parse，避免对 /music 路由的依赖
+        return await requestMusic.get<any>('/api/parse', { params: { id } });
       }
 
       // 检查缓存
@@ -538,7 +539,7 @@ export class MusicParser {
         settingsStore = useSettingsStore();
       } catch (error) {
         console.error('无法获取设置存储，使用后备方案:', error);
-        return await requestMusic.get<any>('/music', { params: { id } });
+        return await requestMusic.get<any>('/api/parse', { params: { id } });
       }
 
       // 检查音乐解析功能是否启用
@@ -547,8 +548,7 @@ export class MusicParser {
         return {
           data: {
             code: 404,
-            message: '音乐解析功能已禁用',
-            data: undefined
+            message: '音乐解析功能已禁用'
           }
         };
       }
@@ -558,7 +558,7 @@ export class MusicParser {
 
       if (musicSources.length === 0) {
         console.warn('没有配置可用的音源，使用后备方案');
-        return await requestMusic.get<any>('/music', { params: { id } });
+        return await requestMusic.get<any>('/api/parse', { params: { id } });
       }
 
       // 获取可用的解析策略
@@ -569,7 +569,7 @@ export class MusicParser {
 
       if (availableStrategies.length === 0) {
         console.warn('没有可用的解析策略，使用后备方案');
-        return await requestMusic.get<any>('/music', { params: { id } });
+        return await requestMusic.get<any>('/api/parse', { params: { id } });
       }
 
       console.log(
@@ -607,7 +607,8 @@ export class MusicParser {
     // 后备方案：使用API请求
     try {
       console.log('使用后备方案：API请求');
-      const result = await requestMusic.get<any>('/music', { params: { id } });
+      // 改为走 /api/parse 作为后备
+      const result = await requestMusic.get<any>('/api/parse', { params: { id } });
 
       // 如果后备方案成功，也进行缓存
       if (result?.data?.data?.url) {
@@ -624,7 +625,7 @@ export class MusicParser {
         data: {
           code: 500,
           message: '所有解析方式都失败了',
-          data: undefined
+          // 不返回 data 字段以满足精确可选类型
         }
       };
     }
