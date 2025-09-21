@@ -572,13 +572,14 @@ class AudioService {
 
           this.currentTrack = track;
           console.log('audioService: 创建新的 Howl 对象');
+          console.log('audioService: play url =>', url);
           this.currentSound = new Howl({
             src: [url],
             html5: true,
             autoplay: false,
             volume: 1, // 禁用 Howler.js 音量控制
             rate: this.playbackRate,
-            format: ['mp3', 'aac'],
+            // 不强制声明 format，由浏览器自行选择支持的编解码，避免 m4a/mp4/aac 在部分浏览器上被误判
             onloaderror: (_, error) => {
               console.error('Audio load error:', error);
               if (retryCount < maxRetries) {
