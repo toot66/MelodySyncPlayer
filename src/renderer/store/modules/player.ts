@@ -32,18 +32,34 @@ const preloadingSounds = ref<Howl[]>([]);
 // 调用 Worker 侧解析（/api/parse），用于官方直链缺失时的兜底
 async function parseFromWorker(id: number, level: string = 'higher'): Promise<string | null> {
   if (!AUTH_BASE) return null;
+  // 动态引入 axios 实例，使用统一的 BASE（已指向 AUTH_BASE）
+  const { default: requestMusic } = await import('@/utils/request_music');
+
+  const doRequest = async () => {
+    const res = await requestMusic.get<any>('/api/parse', {
+      params: {
+        id,
+        level,
+        encodeType: 'flac',
+        device: 'mobile'
+      },
+      timeout: 8000
+    });
+    const u = res?.data?.data?.url || res?.data?.url || null;
+    return u ? (normalizeStreamUrl(u) as string) : null;
+  };
+
   try {
-    const url = `${AUTH_BASE}/api/parse?id=${encodeURIComponent(id)}&level=${encodeURIComponent(level)}&encodeType=flac&device=mobile`;
-    const resp = await fetch(url, { method: 'GET' });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const u = data?.data?.url || data?.url || null;
-    const finalUrl = u ? (normalizeStreamUrl(u) as string) : null;
-    if (finalUrl) {
-      console.log('[Player] parseFromWorker ok ->', finalUrl);
+    let finalUrl = await doRequest();
+    if (!finalUrl) {
+      // 快速重试一次
+      await new Promise((r) => setTimeout(r, 500));
+      finalUrl = await doRequest();
     }
+    if (finalUrl) console.log('[Player] parseFromWorker ok ->', finalUrl);
     return finalUrl;
-  } catch {
+  } catch (e) {
+    console.warn('[Player] parseFromWorker failed:', e);
     return null;
   }
 }
