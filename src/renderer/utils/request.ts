@@ -21,14 +21,35 @@ const API_LIST: string[] = (
   .map((s) => s.trim())
   .filter(Boolean) || [];
 
+const AUTH_BASE = ((import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined) || '';
+const API_BASE = ((import.meta as any)?.env?.VITE_API as string | undefined) || '';
+
 const getBrowserBaseURL = (index = 0): string => {
-  if (API_LIST.length > 0) return API_LIST[Math.min(index, API_LIST.length - 1)] || '';
-  return (((import.meta as any)?.env?.VITE_API as string | undefined) ?? '') as string;
+  if (API_LIST.length > 0) {
+    return (API_LIST[Math.min(index, API_LIST.length - 1)] || '').replace(/\/+$/, '');
+  }
+  const chosen = (API_BASE || AUTH_BASE || '').replace(/\/+$/, '');
+  // 允许通过本地存储覆盖（紧急兜底，不依赖构建时变量）
+  try {
+    const override = localStorage.getItem('API_BASE_OVERRIDE');
+    if (!chosen && override) return override.replace(/\/+$/, '');
+  } catch {}
+  return chosen;
 };
 
 const baseURL: string = window.electron
   ? `http://127.0.0.1:${setData?.musicApiPort}`
   : getBrowserBaseURL(0);
+
+// 暴露已解析的 API 基址，供运行时兜底使用（例如播放器代理）
+try {
+  (window as any).__API_BASE__ = baseURL;
+  if (baseURL) {
+    // 仅打印一次，帮助定位是否走到了 Worker
+    // eslint-disable-next-line no-console
+    console.log('[request] baseURL =>', baseURL);
+  }
+} catch {}
 
 const request = axios.create({
   baseURL,
@@ -50,7 +71,9 @@ request.interceptors.request.use(
     } else {
       const idx = typeof config.apiIndex === 'number' ? config.apiIndex : 0;
       config.apiIndex = idx;
-      config.baseURL = getBrowserBaseURL(idx);
+      const url = getBrowserBaseURL(idx);
+      config.baseURL = url;
+      try { (window as any).__API_BASE__ = url; } catch {}
     }
     // 只在retryCount未定义时初始化为0
     if (config.retryCount === undefined) {
