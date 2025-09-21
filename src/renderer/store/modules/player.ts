@@ -21,6 +21,8 @@ import { useUserStore } from './user';
 // 从环境变量读取 Worker 根地址，并去掉末尾斜杠，供音频代理兜底使用
 const AUTH_BASE_RAW = (import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined;
 const AUTH_BASE = AUTH_BASE_RAW ? AUTH_BASE_RAW.replace(/\/+$/, '') : undefined;
+// 调试：打印代理基址，便于确认 Web 端是否生效
+console.log('[Player] AUTH_BASE:', AUTH_BASE);
 
 const musicHistory = useMusicHistory();
 const { message } = createDiscreteApi(['message']);
@@ -36,7 +38,11 @@ async function parseFromWorker(id: number, level: string = 'higher'): Promise<st
     if (!resp.ok) return null;
     const data = await resp.json();
     const u = data?.data?.url || data?.url || null;
-    return u ? (normalizeStreamUrl(u) as string) : null;
+    const finalUrl = u ? (normalizeStreamUrl(u) as string) : null;
+    if (finalUrl) {
+      console.log('[Player] parseFromWorker ok ->', finalUrl);
+    }
+    return finalUrl;
   } catch {
     return null;
   }
@@ -221,6 +227,13 @@ export const getSongUrl = async (
 
       if (hasNoUrl || isTrial) {
         console.log(`官方URL无效 (无URL: ${hasNoUrl}, 试听: ${isTrial})，进入内置备用解析...`);
+        // 1) 优先尝试 Worker 多上游解析（不依赖 VITE_API）
+        const workerUrl = await parseFromWorker(numericId, settingsStore.setData.musicQuality || 'higher');
+        if (workerUrl) {
+          if (isDownloaded) return { url: workerUrl } as any;
+          return workerUrl as string;
+        }
+        // 2) 退回应用内自带解析 API（可能依赖 VITE_API）
         const res = await getParsingMusicUrl(numericId, cloneDeep(songData));
         if (isDownloaded) return res?.data?.data as any;
         return (normalizeStreamUrl(res?.data?.data?.url) as string) || null;
@@ -228,15 +241,31 @@ export const getSongUrl = async (
 
       console.log('官方API解析成功！');
       if (isDownloaded) return songDetail as any;
-      return normalizeStreamUrl(songDetail.url) as string;
+      const final = normalizeStreamUrl(songDetail.url) as string;
+      console.log('[Player] chosen audio url (official)->', final);
+      return final;
     }
 
     console.log('官方API返回数据结构异常，进入内置备用解析...');
+    // 1) 优先 Worker 解析
+    const workerUrl2 = await parseFromWorker(numericId, settingsStore.setData.musicQuality || 'higher');
+    if (workerUrl2) {
+      if (isDownloaded) return { url: workerUrl2 } as any;
+      return workerUrl2 as string;
+    }
+    // 2) 退回应用内解析 API
     const res = await getParsingMusicUrl(numericId, cloneDeep(songData));
     if (isDownloaded) return res?.data?.data as any;
     return (normalizeStreamUrl(res?.data?.data?.url) as string) || null;
   } catch (error) {
     console.error('官方API请求失败，进入内置备用解析流程:', error);
+    // 1) 优先 Worker 解析
+    const workerUrl3 = await parseFromWorker(numericId, settingsStore.setData.musicQuality || 'higher');
+    if (workerUrl3) {
+      if (isDownloaded) return { url: workerUrl3 } as any;
+      return workerUrl3 as string;
+    }
+    // 2) 退回应用内解析 API
     const res = await getParsingMusicUrl(numericId, cloneDeep(songData));
     if (isDownloaded) return res?.data?.data as any;
     return (normalizeStreamUrl(res?.data?.data?.url) as string) || null;
