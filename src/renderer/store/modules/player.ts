@@ -35,26 +35,53 @@ async function parseFromWorker(id: number, level: string = 'higher'): Promise<st
   // 动态引入 axios 实例，使用统一的 BASE（已指向 AUTH_BASE）
   const { default: requestMusic } = await import('@/utils/request_music');
 
-  const doRequest = async () => {
+  const doRequest = async (lvl: string) => {
     const res = await requestMusic.get<any>('/api/parse', {
       params: {
         id,
-        level,
+        level: lvl,
         encodeType: 'flac',
         device: 'mobile'
       },
-      timeout: 8000
+      timeout: 15000
     });
     const u = res?.data?.data?.url || res?.data?.url || null;
     return u ? (normalizeStreamUrl(u) as string) : null;
   };
 
   try {
-    let finalUrl = await doRequest();
+    // 第一次：使用传入的 level（默认 higher）
+    let finalUrl = await doRequest(level);
+    // 第二次：快速重试同一 level
     if (!finalUrl) {
-      // 快速重试一次
       await new Promise((r) => setTimeout(r, 500));
-      finalUrl = await doRequest();
+      finalUrl = await doRequest(level);
+    }
+    // 第三次：降级音质到 standard（对应 128K），兼容部分曲目
+    if (!finalUrl) {
+      await new Promise((r) => setTimeout(r, 800));
+      finalUrl = await doRequest('standard');
+    }
+    // 兜底：直连 NCM 标准端点（同域 Worker 转发），提取 url
+    if (!finalUrl) {
+      try {
+        const paramsBase: any = { id, level, timestamp: Date.now() };
+        // 优先 /song/url/v1
+        const v1 = await requestMusic.get<any>('/song/url/v1', { params: paramsBase, timeout: 12000 });
+        const arr = v1?.data?.data;
+        if (Array.isArray(arr) && arr[0]?.url) {
+          finalUrl = normalizeStreamUrl(arr[0].url) as string;
+        }
+      } catch {}
+    }
+    if (!finalUrl) {
+      try {
+        const track = await requestMusic.get<any>('/track/url', { params: { id }, timeout: 12000 });
+        const arr2 = track?.data?.data;
+        if (Array.isArray(arr2) && arr2[0]?.url) {
+          finalUrl = normalizeStreamUrl(arr2[0].url) as string;
+        }
+      } catch {}
     }
     if (finalUrl) console.log('[Player] parseFromWorker ok ->', finalUrl);
     return finalUrl;
