@@ -579,7 +579,8 @@ class AudioService {
             autoplay: false,
             volume: 1, // 禁用 Howler.js 音量控制
             rate: this.playbackRate,
-            // 不强制声明 format，由浏览器自行选择支持的编解码，避免 m4a/mp4/aac 在部分浏览器上被误判
+            // 显式声明常见音频封装，因代理后的 URL 无扩展名，避免 Howler 误判导致 "No codec support"
+            format: ['mp3', 'm4a', 'mp4', 'aac'],
             onloaderror: (_, error) => {
               console.error('Audio load error:', error);
               if (retryCount < maxRetries) {
