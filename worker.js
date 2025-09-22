@@ -346,46 +346,95 @@ async function handleApiParse(request, env, ctx) {
 
       // 总超时
       const total = new Promise((_, rej) => setTimeout(() => rej(new Error('total timeout')), totalTimeout));
-      try {
-        const result = await Promise.any([Promise.any(tasks), total]);
-        console.log(`[Parse] 竞速成功，音质: ${bit}`);
-        return result;
-      } catch (err) {
-        console.error(`[Parse] 竞速失败，音质: ${bit}, 错误: ${err.message}`);
-        console.error(`[Parse] 详细错误: ${taskErrors.join('; ')}`);
-        throw err;
+      
+      // 智能重试机制
+      const retryCount = Number(env.PARSE_RETRY_COUNT || 3);
+      const retryDelay = Number(env.PARSE_RETRY_DELAY || 1000);
+      
+      let lastError = null;
+      for (let attempt = 1; attempt <= retryCount; attempt++) {
+        try {
+          const result = await Promise.any([Promise.any(tasks), total]);
+          console.log(`[Parse] 竞速成功，音质: ${bit}，尝试次数: ${attempt}`);
+          return result;
+        } catch (err) {
+          lastError = err;
+          console.error(`[Parse] 竞速失败，音质: ${bit}，尝试次数: ${attempt}，错误: ${err.message}`);
+          console.error(`[Parse] 详细错误: ${taskErrors.join('; ')}`);
+          
+          if (attempt < retryCount) {
+            console.log(`[Parse] 等待${retryDelay}ms后进行第${attempt + 1}次尝试`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            // 重置错误数组，准备下一次尝试
+            taskErrors.length = 0;
+          }
+        }
       }
+      throw lastError;
     };
 
     let finalUrl = null;
     let errors = [];
+    const qualities = ['320', '128'];  // 按优先级排序的音质列表
 
-    try {
-      // 第一轮：倾向 320（higher）
-      console.log(`[Parse] 开始第一轮解析，首选音质: ${prefer}`);
-      finalUrl = await tryOnce(prefer);
-    } catch (err) {
-      errors.push(`${prefer}音质: ${err.message}`);
-    }
-
-    try {
-      // 第二轮：降级 128（standard）
-      if (!finalUrl) {
-        console.log(`[Parse] 开始第二轮解析，降级音质: 128`);
-        finalUrl = await tryOnce('128');
+    // 智能音质切换
+    for (const quality of qualities) {
+      try {
+        console.log(`[Parse] 开始解析，当前音质: ${quality}`);
+        finalUrl = await tryOnce(quality);
+        if (finalUrl) {
+          console.log(`[Parse] 成功获取URL，音质: ${quality}`);
+          break;
+        }
+      } catch (err) {
+        errors.push(`${quality}音质: ${err.message}`);
+        console.error(`[Parse] 音质${quality}解析失败，尝试下一个音质`);
       }
-    } catch (err) {
-      errors.push(`128音质: ${err.message}`);
     }
 
     if (!finalUrl) {
-      console.error(`[Parse] 所有解析尝试失败，ID: ${id}, 错误: ${errors.join('; ')}`);
-      return json({ code: 504, msg: 'parse timeout or no playable url', errors }, 504);
+      const errorSummary = {
+        id,
+        attempts: errors.length,
+        errors: errors.map(e => e.trim()),
+        apis_tried: bases.length,
+        last_try: new Date().toISOString()
+      };
+      console.error(`[Parse] 所有解析尝试失败，详细信息:`, JSON.stringify(errorSummary, null, 2));
+      return json({ 
+        code: 504, 
+        msg: 'parse timeout or no playable url', 
+        error_details: errorSummary,
+        suggestion: '建议稍后重试或尝试其他音乐'
+      }, 504);
     }
 
-    console.log(`[Parse] 解析成功，ID: ${id}, URL: ${finalUrl.substring(0, 60)}...`);
-    const resp = json({ code: 200, data: { id, source: 'wyy', url: finalUrl } });
+    const successInfo = {
+      id,
+      quality: qualities.find(q => finalUrl.includes(`&br=${q}000`)) || 'unknown',
+      source: finalUrl.includes('music.126.net') ? 'netease' : 
+              finalUrl.includes('qq.com') ? 'qq' : 'other',
+      cache_ttl: cacheTTL,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log(`[Parse] 解析成功，详细信息:`, JSON.stringify(successInfo, null, 2));
+    console.log(`[Parse] 解析URL: ${finalUrl.substring(0, 60)}...`);
+    
+    const resp = json({ 
+      code: 200, 
+      data: { 
+        id, 
+        source: successInfo.source,
+        quality: successInfo.quality,
+        url: finalUrl 
+      }
+    });
+    
     resp.headers.set('Cache-Control', `public, max-age=${cacheTTL}`);
+    resp.headers.set('X-Parse-Source', successInfo.source);
+    resp.headers.set('X-Parse-Quality', successInfo.quality);
+    
     ctx.waitUntil(cache.put(ck, resp.clone()));
     return resp;
   } catch (error) {
