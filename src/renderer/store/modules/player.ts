@@ -96,14 +96,20 @@ function normalizeStreamUrl(url?: string | null): string | null {
   if (!url) return url ?? null;
   try {
     // 桌面端/Electron 不需要代理；仅在浏览器环境走代理
-    const isWeb = typeof window !== 'undefined';
+    const isWeb = typeof window !== 'undefined' && !window.electron;
     if (isWeb && AUTH_BASE) {
+      console.log('[Player] 使用代理URL:', url);
+      // 检查URL是否已经是代理URL，避免重复代理
+      if (url.includes('/proxy/audio?url=')) {
+        return url;
+      }
       // 始终通过代理转发，提升跨源与重定向稳定性
       return `${AUTH_BASE}/proxy/audio?url=${encodeURIComponent(url)}`;
     }
     // 兜底替换 http 为 https，避免混合内容
     return url.replace(/^http:\/\//i, 'https://');
-  } catch {
+  } catch (error) {
+    console.error('[Player] 处理音频URL时出错:', error);
     return url;
   }
 }
