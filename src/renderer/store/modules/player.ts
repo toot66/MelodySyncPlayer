@@ -20,9 +20,45 @@ import { useUserStore } from './user';
 
 // 从环境变量读取 Worker 根地址，并去掉末尾斜杠，供音频代理兜底使用
 const AUTH_BASE_RAW = (import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined;
-const AUTH_BASE = AUTH_BASE_RAW ? AUTH_BASE_RAW.replace(/\/+$/, '') : undefined;
+const AUTH_BASE = AUTH_BASE_RAW ? AUTH_BASE_RAW.replace(/\/$/, '') : undefined;
 // 调试：打印代理基址，便于确认 Web 端是否生效
 console.log('[Player] AUTH_BASE:', AUTH_BASE);
+
+// 添加调试功能，检查Worker配置和连接状态
+async function checkWorkerConnection(): Promise<{success: boolean, message: string, details?: any}> {
+  if (!AUTH_BASE) {
+    return { success: false, message: 'Worker基址未配置 (VITE_AUTH_BASE)' };
+  }
+  
+  try {
+    // 动态引入axios实例
+    const { default: requestMusic } = await import('@/utils/request_music');
+    
+    // 检查Worker健康状态
+    console.log('[Player] 检查Worker状态...');
+    const healthCheck = await requestMusic.get('/health', { timeout: 5000 });
+    if (healthCheck?.status !== 200) {
+      return { success: false, message: `Worker健康检查失败: ${healthCheck?.status}` };
+    }
+    
+    // 获取Worker调试信息
+    console.log('[Player] 获取Worker调试信息...');
+    const debugInfo = await requestMusic.get('/debug/info', { timeout: 5000 });
+    
+    return { 
+      success: true, 
+      message: 'Worker连接正常', 
+      details: debugInfo?.data || { note: '未获取到调试信息' }
+    };
+  } catch (error) {
+    console.error('[Player] Worker状态检查失败:', error);
+    return { 
+      success: false, 
+      message: `Worker连接失败: ${error.message || '未知错误'}`,
+      details: { error: error.toString() }
+    };
+  }
+}
 
 const musicHistory = useMusicHistory();
 const { message } = createDiscreteApi(['message']);
@@ -31,72 +67,127 @@ const preloadingSounds = ref<Howl[]>([]);
 
 // 调用 Worker 侧解析（/api/parse），用于官方直链缺失时的兜底
 async function parseFromWorker(id: number, level: string = 'higher'): Promise<string | null> {
-  if (!AUTH_BASE) return null;
+  console.log(`[Player] parseFromWorker 开始解析，ID: ${id}, 音质: ${level}`);
+  
+  if (!AUTH_BASE) {
+    console.warn('[Player] parseFromWorker 失败: AUTH_BASE未配置');
+    return null;
+  }
+  
   // 动态引入 axios 实例，使用统一的 BASE（已指向 AUTH_BASE）
   const { default: requestMusic } = await import('@/utils/request_music');
+  console.log(`[Player] parseFromWorker 使用API基址: ${AUTH_BASE}`);
 
   const doRequest = async (lvl: string) => {
-    const res = await requestMusic.get<any>('/api/parse', {
-      params: {
-        id,
-        level: lvl,
-        encodeType: 'flac',
-        device: 'mobile'
-      },
-      timeout: 15000
-    });
-    const u = res?.data?.data?.url || res?.data?.url || null;
-    return u ? (normalizeStreamUrl(u) as string) : null;
+    console.log(`[Player] parseFromWorker 请求 /api/parse，音质: ${lvl}`);
+    try {
+      const res = await requestMusic.get<any>('/api/parse', {
+        params: {
+          id,
+          level: lvl,
+          encodeType: 'flac',
+          device: 'mobile'
+        },
+        timeout: 15000
+      });
+      
+      console.log(`[Player] parseFromWorker 响应状态: ${res?.status}, 数据结构:`, 
+                  res?.data ? JSON.stringify(res.data).substring(0, 100) + '...' : '无数据');
+      
+      const u = res?.data?.data?.url || res?.data?.url || null;
+      if (u) {
+        console.log(`[Player] parseFromWorker 成功获取URL: ${u.substring(0, 100)}...`);
+        return normalizeStreamUrl(u) as string;
+      } else {
+        console.warn(`[Player] parseFromWorker 未获取到URL`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`[Player] parseFromWorker 请求失败:`, error);
+      return null;
+    }
   };
 
   try {
     // 第一次：使用传入的 level（默认 higher）
+    console.log(`[Player] parseFromWorker 第一次尝试，音质: ${level}`);
     let finalUrl = await doRequest(level);
+    
     // 第二次：快速重试同一 level
     if (!finalUrl) {
+      console.log(`[Player] parseFromWorker 第一次失败，500ms后重试同一音质`);
       await new Promise((r) => setTimeout(r, 500));
       finalUrl = await doRequest(level);
     }
+    
     // 第三次：降级音质到 standard（对应 128K），兼容部分曲目
     if (!finalUrl) {
+      console.log(`[Player] parseFromWorker 第二次失败，800ms后尝试降级音质`);
       await new Promise((r) => setTimeout(r, 800));
       finalUrl = await doRequest('standard');
     }
+    
     // 兜底：直连 NCM 标准端点（同域 Worker 转发），提取 url
     if (!finalUrl) {
+      console.log(`[Player] parseFromWorker 所有解析尝试失败，尝试直连NCM端点`);
       try {
         const paramsBase: any = { id, level, timestamp: Date.now() };
         // 优先 /song/url/v1
+        console.log(`[Player] parseFromWorker 尝试 /song/url/v1 端点`);
         const v1 = await requestMusic.get<any>('/song/url/v1', { params: paramsBase, timeout: 12000 });
         const arr = v1?.data?.data;
         if (Array.isArray(arr) && arr[0]?.url) {
+          console.log(`[Player] parseFromWorker /song/url/v1 成功获取URL`);
           finalUrl = normalizeStreamUrl(arr[0].url) as string;
+        } else {
+          console.warn(`[Player] parseFromWorker /song/url/v1 未返回有效URL`);
         }
-      } catch {}
+      } catch (error) {
+        console.error(`[Player] parseFromWorker /song/url/v1 请求失败:`, error);
+      }
     }
+    
     if (!finalUrl) {
       try {
+        console.log(`[Player] parseFromWorker 尝试 /track/url 端点`);
         const track = await requestMusic.get<any>('/track/url', { params: { id }, timeout: 12000 });
         const arr2 = track?.data?.data;
         if (Array.isArray(arr2) && arr2[0]?.url) {
+          console.log(`[Player] parseFromWorker /track/url 成功获取URL`);
           finalUrl = normalizeStreamUrl(arr2[0].url) as string;
+        } else {
+          console.warn(`[Player] parseFromWorker /track/url 未返回有效URL`);
         }
-      } catch {}
+      } catch (error) {
+        console.error(`[Player] parseFromWorker /track/url 请求失败:`, error);
+      }
     }
-    if (finalUrl) console.log('[Player] parseFromWorker ok ->', finalUrl);
+    
+    if (finalUrl) {
+      console.log('[Player] parseFromWorker 最终成功 ->', finalUrl.substring(0, 100) + '...');
+    } else {
+      console.error('[Player] parseFromWorker 所有尝试均失败，无法获取音频URL');
+    }
+    
     return finalUrl;
   } catch (e) {
-    console.warn('[Player] parseFromWorker failed:', e);
+    console.error('[Player] parseFromWorker 发生未捕获错误:', e);
     return null;
   }
 }
 
 // 统一处理音频直链：在 Web 场景优先走 Worker 代理，确保 HTTPS + CORS + Range 透传
 function normalizeStreamUrl(url?: string | null): string | null {
-  if (!url) return url ?? null;
+  if (!url) {
+    console.log('[Player] normalizeStreamUrl: 收到空URL');
+    return url ?? null;
+  }
+  
   try {
     // 桌面端/Electron 不需要代理；仅在浏览器环境走代理
     const isWeb = typeof window !== 'undefined' && !window.electron;
+    console.log(`[Player] normalizeStreamUrl: 环境检测 - isWeb=${isWeb}, AUTH_BASE=${AUTH_BASE ? '已配置' : '未配置'}`);
+    
     if (isWeb && AUTH_BASE) {
       console.log('[Player] 使用代理URL:', url);
       // 检查URL是否已经是代理URL，避免重复代理
@@ -1837,6 +1928,9 @@ export const usePlayerStore = defineStore('player', () => {
     originalPlayList,
     shufflePlayList,
     restoreOriginalOrder,
-    preloadNextSongs
+    preloadNextSongs,
+    
+    // Worker连接诊断
+    checkWorkerConnection
   };
 });

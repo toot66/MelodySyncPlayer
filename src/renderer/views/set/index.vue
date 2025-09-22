@@ -521,6 +521,20 @@
           </div>
         </div>
 
+        <!-- Worker诊断 -->
+        <div id="worker" ref="workerRef" class="settings-section">
+          <div class="settings-section-title">Worker诊断</div>
+          <div class="settings-section-content">
+            <div class="set-item">
+              <div>
+                <div class="set-item-title">Worker连接状态</div>
+                <div class="set-item-content">检查Worker连接状态，帮助诊断音频播放问题</div>
+              </div>
+              <worker-diagnostic />
+            </div>
+          </div>
+        </div>
+
         <!-- 关于（按需关闭显示） -->
         <div v-if="false" id="about" ref="aboutRef" class="settings-section">
           <div class="settings-section-title">{{ t('settings.regard') }}</div>
@@ -644,6 +658,7 @@ import { isElectron, isMobile } from '@/utils';
 import { openDirectory, selectDirectory } from '@/utils/fileOperation';
 import { checkUpdate, UpdateResult } from '@/utils/update';
 import { getRemotePlugins } from '@/api/plugins';
+import WorkerDiagnostic from '@/components/WorkerDiagnostic.vue';
 
 import config from '../../../../package.json';
 
@@ -1068,7 +1083,8 @@ const settingSections = computed(() => [
   { id: 'application', title: t('settings.sections.application'), electron: true },
   { id: 'network', title: t('settings.sections.network'), electron: true },
   { id: 'system', title: t('settings.sections.system'), electron: true },
-  // 移除“关于”分组
+  { id: 'worker', title: 'Worker诊断' },
+  // 移除"关于"分组
   { id: 'donation', title: t('settings.sections.donation') }
 ]);
 
