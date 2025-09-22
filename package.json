@@ -87,7 +87,7 @@
     "eslint-plugin-vue-scoped-css": "^2.11.0",
     "globals": "^16.3.0",
     "howler": "^2.2.4",
-    "lint-staged": "^15.2.10",
+    "lint-staged": "^16.1.6",
     "lodash": "^4.17.21",
     "marked": "^15.0.4",
     "naive-ui": "^2.41.0",
