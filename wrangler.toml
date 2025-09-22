@@ -1,0 +1,18 @@
+name = "music-api"
+main = "./worker.js"
+compatibility_date = "2024-05-01"
+
+# 环境变量
+[vars]
+# CORS 配置，允许特定域名访问API
+CORS_ALLOW_ORIGIN = "https://melodysyncplayer.pages.dev,https://localhost:3000"
+
+# 音乐API基础URL配置
+MUSIC_NCM_BASE = "https://neteasemusic-api.onrender.com"
+MUSIC_MIX_BASE = "https://netease-musicapi.onrender.com"
+MUSICAPI_BASE = "https://neteasemusic-api.onrender.com,https://netease-musicapi.onrender.com"
+
+# 解析超时配置
+PARSE_CACHE_TTL = 1800
+PARSE_PER_UPSTREAM_TIMEOUT = 8000
+PARSE_TOTAL_TIMEOUT = 20000

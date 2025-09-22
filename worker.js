@@ -16,8 +16,8 @@
 //
 // 可选环境变量：
 // - PARSE_CACHE_TTL                // 默认 1800 秒
-// - PARSE_PER_UPSTREAM_TIMEOUT     // 默认 4500 毫秒（可调为 6000）
-// - PARSE_TOTAL_TIMEOUT            // 默认 12000 毫秒（可调为 15000~18000）
+// - PARSE_PER_UPSTREAM_TIMEOUT     // 默认 8000 毫秒（增加以解决超时问题）
+// - PARSE_TOTAL_TIMEOUT            // 默认 20000 毫秒（增加以解决超时问题）
 //
 
 export default {
@@ -49,8 +49,8 @@ export default {
               MUSIC_NCM_BASE: env.MUSIC_NCM_BASE ? '已配置' : '未配置',
               MUSIC_MIX_BASE: env.MUSIC_MIX_BASE ? '已配置' : '未配置',
               PARSE_CACHE_TTL: env.PARSE_CACHE_TTL || 1800,
-              PARSE_PER_UPSTREAM_TIMEOUT: env.PARSE_PER_UPSTREAM_TIMEOUT || 4500,
-              PARSE_TOTAL_TIMEOUT: env.PARSE_TOTAL_TIMEOUT || 12000
+              PARSE_PER_UPSTREAM_TIMEOUT: env.PARSE_PER_UPSTREAM_TIMEOUT || 8000,
+              PARSE_TOTAL_TIMEOUT: env.PARSE_TOTAL_TIMEOUT || 20000
             }
           }
         };
@@ -120,7 +120,11 @@ function json(data, status = 200) {
 
 function makeCorsResponse(resp, env, request) {
   const reqOrigin = request?.headers?.get('Origin') || '';
-  const allow = (env && env.CORS_ALLOW_ORIGIN) || '*';
+  // 确保melodysyncplayer.pages.dev域名被允许
+  let allow = (env && env.CORS_ALLOW_ORIGIN) || '*';
+  if (!allow.includes('melodysyncplayer.pages.dev') && allow !== '*') {
+    allow = allow + ',https://melodysyncplayer.pages.dev';
+  }
 
   const headers = new Headers(resp.headers);
   const rewrapped = new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
@@ -224,8 +228,8 @@ async function handleApiParse(request, env, ctx) {
       return cached;
     }
 
-    const perUpTimeout = Number(env.PARSE_PER_UPSTREAM_TIMEOUT || 4500);
-    const totalTimeout = Number(env.PARSE_TOTAL_TIMEOUT || 12000);
+    const perUpTimeout = Number(env.PARSE_PER_UPSTREAM_TIMEOUT || 8000);
+    const totalTimeout = Number(env.PARSE_TOTAL_TIMEOUT || 20000);
     console.log(`[Parse] 超时配置 - 单上游: ${perUpTimeout}ms, 总超时: ${totalTimeout}ms`);
 
     const bases = listParseBases(env);
