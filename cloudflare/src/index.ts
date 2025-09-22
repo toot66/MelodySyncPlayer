@@ -83,4 +83,44 @@ app.get('/api/me', authGuard, (c) => {
   return c.json({ user })
 })
 
+/**
+ * 通用代理：转发 /api/* 请求到 Joytour API 并添加 CORS 头
+ */
+app.all('/api/*', async (c) => {
+  const url = new URL(c.req.url)
+  // 去掉 /api 前缀，拼接到目标 API
+  const targetPath = url.pathname.replace(/^\/api/, '')
+  const targetUrl = `https://api.joytour.asia${targetPath}${url.search}`
+  const init: RequestInit = {
+    method: c.req.method,
+    headers: c.req.headers,
+    body: ['GET', 'HEAD'].includes(c.req.method) ? undefined : await c.req.arrayBuffer()
+  }
+  const resp = await fetch(targetUrl, init)
+  // 复制响应并添加 CORS
+  const headers = new Headers(resp.headers)
+  headers.set('Access-Control-Allow-Origin', '*')
+  return new Response(resp.body, { status: resp.status, headers })
+})
+
+/**
+ * 音频直链代理：/proxy/audio?url=
+ */
+app.get('/proxy/audio', async (c) => {
+  const url = c.req.query('url')
+  if (!url) return c.json({ error: 'Missing url param' }, 400)
+  // 透传 Range、User-Agent 等头部
+  const init: RequestInit = {
+    headers: {
+      Range: c.req.header('Range') || '',
+      'User-Agent': c.req.header('User-Agent') || ''
+    }
+  }
+  const resp = await fetch(url, init)
+  const headers = new Headers(resp.headers)
+  // 添加 CORS
+  headers.set('Access-Control-Allow-Origin', '*')
+  return new Response(resp.body, { status: resp.status, headers })
+})
+
 export default app
