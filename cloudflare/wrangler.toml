@@ -14,10 +14,8 @@ GITHUB_CLIENT_SECRET = "YOUR_GITHUB_CLIENT_SECRET"
 binding = "DB"          # 在 Worker 代码中通过 env.DB 访问
 database_name = "melodysync-db"
 database_id = "ac2bcba3-b99d-40aa-ac99-9ea1d7f36210"
-# 本地 / 生产同时生效的迁移目录，确保 users 表等初始化成功
-migrations_dir = "./migrations"
 
 # 绑定 KV 命名空间（存 session / 验证码等）
 [[kv_namespaces]]
-binding = "KV_BINDING"
+binding = "SESSIONS"
 id = "03253adbeadf4b159a4558b3cc991b4f"

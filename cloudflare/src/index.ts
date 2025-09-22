@@ -1,4 +1,3 @@
-/// <reference types="@cloudflare/workers-types" />
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createMiddleware } from 'hono/factory'
@@ -7,12 +6,11 @@ import { verify, sign } from 'hono/jwt'
 // Env interface for type safety
 export interface Env {
   DB: D1Database
-  KV_BINDING: KVNamespace
+  SESSIONS: KVNamespace
   JWT_SECRET: string
-  PLUGINS_SOURCE_URL?: string
 }
 
-const app = new Hono<{ Bindings: Env; Variables: { user: any } }>()
+const app = new Hono<{ Bindings: Env }>()
 app.use('*', cors())
 
 // Helper: create JWT
@@ -20,7 +18,7 @@ const createToken = (payload: object, env: Env) =>
   sign(payload, env.JWT_SECRET, { expiresIn: '2h' })
 
 // Middleware: auth guard
-const authGuard = createMiddleware<{ Bindings: Env; Variables: { user: any } }>(async (c, next) => {
+const authGuard = createMiddleware<{ Bindings: Env }>(async (c, next) => {
   const auth = c.req.header('Authorization')
   if (!auth) return c.json({ error: 'Missing token' }, 401)
   try {
@@ -70,70 +68,6 @@ app.post('/api/login', async (c) => {
 app.get('/api/me', authGuard, (c) => {
   const user = c.get('user')
   return c.json({ user })
-})
-
-import github from './github'
-app.route('/', github)
-
-// ===== MusicFree plugins proxy & cache =====
-const DEFAULT_PLUGINS_URL =
-  'https://gitee.com/maotoumao/MusicFreePlugins/raw/master/plugins.json'
-
-function isAllowedUrl(u: string) {
-  try {
-    const url = new URL(u)
-    const host = url.host.toLowerCase()
-    // whitelist common plugin hosts
-    return (
-      host.endsWith('gitee.com') ||
-      host.endsWith('githubusercontent.com') ||
-      host.endsWith('github.com')
-    )
-  } catch (_) {
-    return false
-  }
-}
-
-// GET /plugins – return plugins.json via KV cache
-app.get('/plugins', async (c) => {
-  const kv = c.env.KV_BINDING
-  const source = c.env.PLUGINS_SOURCE_URL || DEFAULT_PLUGINS_URL
-  const cacheKey = 'plugins_json_v1'
-
-  const cached = await kv.get(cacheKey)
-  if (cached) {
-    return new Response(cached, {
-      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=600' }
-    })
-  }
-  const resp = await fetch(source, { cf: { cacheTtl: 300, cacheEverything: true } } as RequestInit)
-  if (!resp.ok) return c.json({ error: 'Fetch plugins failed' }, 502)
-  const text = await resp.text()
-  await kv.put(cacheKey, text, { expirationTtl: 3600 }) // 1h
-  return new Response(text, {
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=600' }
-  })
-})
-
-// GET /plugin?url=<encoded> – proxy a single JS file with cache
-app.get('/plugin', async (c) => {
-  const url = c.req.query('url')
-  if (!url || !isAllowedUrl(url)) return c.json({ error: 'Invalid url' }, 400)
-  const kv = c.env.KV_BINDING
-  const cacheKey = `plugin_${url}`
-  const cached = await kv.get(cacheKey)
-  if (cached) {
-    return new Response(cached, {
-      headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=86400' }
-    })
-  }
-  const resp = await fetch(url, { cf: { cacheTtl: 3600, cacheEverything: true } } as RequestInit)
-  if (!resp.ok) return c.json({ error: 'Fetch plugin failed' }, 502)
-  const js = await resp.text()
-  await kv.put(cacheKey, js, { expirationTtl: 86400 }) // 24h
-  return new Response(js, {
-    headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=86400' }
-  })
 })
 
 export default app
