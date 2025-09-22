@@ -125,7 +125,8 @@ const handleShowMv = async (item: IMvItem, index: number) => {
 const playPrevMv = async (setLoading: (value: boolean) => void) => {
   try {
     if (currentIndex.value > 0) {
-      const prevItem = mvList.value[currentIndex.value - 1];
+      // 这里明确断言 prevItem 不为 undefined，符合当前条件判断
+      const prevItem = mvList.value[currentIndex.value - 1] as IMvItem;
       await handleShowMv(prevItem, currentIndex.value - 1);
     }
   } finally {
@@ -136,12 +137,14 @@ const playPrevMv = async (setLoading: (value: boolean) => void) => {
 const playNextMv = async (setLoading: (value: boolean) => void) => {
   try {
     if (currentIndex.value < mvList.value.length - 1) {
-      const nextItem = mvList.value[currentIndex.value + 1];
+      // 在此处明确断言 nextItem 不为 undefined，类型安全
+      const nextItem = mvList.value[currentIndex.value + 1] as IMvItem;
       await handleShowMv(nextItem, currentIndex.value + 1);
-    } else if (hasMore.value) {
+     } else if (hasMore.value) {
       await loadMvList();
       if (mvList.value.length > currentIndex.value + 1) {
-        const nextItem = mvList.value[currentIndex.value + 1];
+        // loadMvList 后数组长度已检查，这里同样断言类型
+        const nextItem = mvList.value[currentIndex.value + 1] as IMvItem;
         await handleShowMv(nextItem, currentIndex.value + 1);
       } else {
         showMv.value = false;

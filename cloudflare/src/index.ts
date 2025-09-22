@@ -1,24 +1,37 @@
+// Cloudflare Worker entry built with Hono
+
+/// <reference types="@cloudflare/workers-types" />
+
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createMiddleware } from 'hono/factory'
 import { verify, sign } from 'hono/jwt'
+import type { JWTPayload } from 'hono/utils/jwt/types'
+import type { D1Database, KVNamespace } from '@cloudflare/workers-types'
 
-// Env interface for type safety
+// Environment bindings exposed by wrangler.toml
 export interface Env {
   DB: D1Database
   SESSIONS: KVNamespace
   JWT_SECRET: string
 }
 
-const app = new Hono<{ Bindings: Env }>()
+// Custom variables attached to Context
+interface Variables {
+  user: JWTPayload
+}
+
+const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 app.use('*', cors())
 
 // Helper: create JWT
-const createToken = (payload: object, env: Env) =>
-  sign(payload, env.JWT_SECRET, { expiresIn: '2h' })
+const createToken = (payload: JWTPayload, env: Env) => {
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 2 // 2 hours
+  return sign({ ...payload, exp }, env.JWT_SECRET)
+}
 
 // Middleware: auth guard
-const authGuard = createMiddleware<{ Bindings: Env }>(async (c, next) => {
+const authGuard = createMiddleware<{ Bindings: Env; Variables: Variables }>(async (c, next) => {
   const auth = c.req.header('Authorization')
   if (!auth) return c.json({ error: 'Missing token' }, 401)
   try {

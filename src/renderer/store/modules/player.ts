@@ -450,18 +450,22 @@ export const loadLrc = async (id: string | number): Promise<ILyric> => {
   try {
     const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
     const { data } = await getMusicLrc(numericId);
-    const { lyrics, times } = parseLyrics(data.lrc.lyric);
+    const { lyrics, times } = parseLyrics(data.lrc?.lyric ?? '');
     const tlyric: Record<string, string> = {};
 
-    if (data.tlyric && data.tlyric.lyric) {
+    if (data.tlyric?.lyric) {
       const { lyrics: tLyrics, times: tTimes } = parseLyrics(data.tlyric.lyric);
       tLyrics.forEach((lyric, index) => {
-        tlyric[tTimes[index].toString()] = lyric.text;
+        const key = tTimes[index]?.toString();
+        if (key) {
+          tlyric[key] = lyric.text;
+        }
       });
     }
 
     lyrics.forEach((item, index) => {
-      item.trText = item.text ? tlyric[times[index].toString()] || '' : '';
+      const timeKey = times[index]?.toString();
+      item.trText = item.text ? (timeKey ? tlyric[timeKey] || '' : '') : '';
     });
     return {
       lrcTimeArray: times,
@@ -687,7 +691,7 @@ export const usePlayerStore = defineStore('player', () => {
       const currentSongIndex = remainingSongs.findIndex((song) => song.id === currentSong.id);
       if (currentSongIndex !== -1) {
         // 把当前歌曲放在第一位
-        result.push(remainingSongs.splice(currentSongIndex, 1)[0]);
+        result.push(remainingSongs.splice(currentSongIndex, 1)[0]!);
       }
     }
 
@@ -696,7 +700,7 @@ export const usePlayerStore = defineStore('player', () => {
       // Fisher-Yates 洗牌算法
       for (let i = remainingSongs.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [remainingSongs[i], remainingSongs[j]] = [remainingSongs[j], remainingSongs[i]];
+        [remainingSongs[i], remainingSongs[j]] = [remainingSongs[j]!, remainingSongs[i]!];
       }
 
       // 把洗牌后的歌曲添加到结果中
@@ -716,7 +720,7 @@ export const usePlayerStore = defineStore('player', () => {
       localStorage.setItem('originalPlayList', JSON.stringify(originalPlayList.value));
     }
 
-    const currentSong = playList.value[playListIndex.value];
+    const currentSong = playList.value[playListIndex.value]!;
     const shuffledList = performShuffle(playList.value, currentSong);
 
     // 更新播放列表和索引
@@ -731,7 +735,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (originalPlayList.value.length === 0) return;
 
     const currentSong = playMusic.value;
-    const originalIndex = originalPlayList.value.findIndex((song) => song.id === currentSong.id);
+    const originalIndex = originalPlayList.value.findIndex((song) => song.id === currentSong?.id);
 
     playList.value = [...originalPlayList.value];
     playListIndex.value = Math.max(0, originalIndex);
@@ -1351,7 +1355,7 @@ export const usePlayerStore = defineStore('player', () => {
       const nowPlayListIndex = (playListIndex.value + 1) % playList.value.length;
 
       // 获取下一首歌曲
-      const nextSong = { ...playList.value[nowPlayListIndex] };
+      const nextSong = { ...playList.value[nowPlayListIndex]! };
 
       // 更新当前播放索引
       playListIndex.value = nowPlayListIndex;
@@ -1388,7 +1392,7 @@ export const usePlayerStore = defineStore('player', () => {
         (playListIndex.value - 1 + playList.value.length) % playList.value.length;
 
       // 获取上一首歌曲
-      const prevSong = { ...playList.value[nowPlayListIndex] };
+      const prevSong = { ...playList.value[nowPlayListIndex]! };
 
       // 重要：首先更新当前播放索引
       playListIndex.value = nowPlayListIndex;

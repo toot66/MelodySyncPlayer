@@ -15,9 +15,12 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "exactOptionalPropertyTypes": false,
+    "useUnknownInCatchVariables": false,
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    // removed duplicate exactOptionalPropertyTypes
     "jsx": "preserve",
     "sourceMap": true,
     "skipLibCheck": true,

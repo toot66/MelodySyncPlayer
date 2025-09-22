@@ -326,7 +326,7 @@ async function handleApiParse(request, env, ctx) {
 
         // NCM：来自 MUSICAPI_BASE（v1 优先，回退 song/url）
         for (const b of prioritizedBases) {
-          const baseTrim = b.replace(//+$/, '');
+          const baseTrim = b.replace(/\/+$/, '');
           errorSummary.attempts++;
           
           const task = (async () => {
@@ -415,18 +415,13 @@ async function handleApiParse(request, env, ctx) {
 
         // 全部失败，返回错误响应
         return makeErrorResponse(404, `无法获取音乐URL (${errorSummary.attempts} 次尝试)`);
-        // 使用新的解析逻辑
-      }
+      // 使用新的解析逻辑
 
       // 新的解析逻辑已经包含了QQ音乐和NCM兜底的处理
       // 在tryOnce函数中已经实现了完整的解析流程
 
       // 总超时
       const total = new Promise((_, rej) => setTimeout(() => rej(new Error('total timeout')), totalTimeout));
-      
-      // 智能重试机制
-      const retryCount = Number(env.PARSE_RETRY_COUNT || 3);
-      const retryDelay = Number(env.PARSE_RETRY_DELAY || 1000);
       
       let lastError = null;
       for (let attempt = 1; attempt <= retryCount; attempt++) {

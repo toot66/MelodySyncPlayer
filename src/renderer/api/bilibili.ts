@@ -138,12 +138,16 @@ export const getBilibiliAudioUrl = async (bvid: string, cid: number): Promise<st
     const playUrlData = res.data;
     let url = '';
 
-    if (playUrlData.dash && playUrlData.dash.audio && playUrlData.dash.audio.length > 0) {
-      url = playUrlData.dash.audio[0].baseUrl;
-    } else if (playUrlData.durl && playUrlData.durl.length > 0) {
-      url = playUrlData.durl[0].url;
+    const dashAudio = playUrlData.dash?.audio;
+    if (dashAudio && dashAudio.length > 0) {
+      url = dashAudio[0]!.baseUrl;
     } else {
-      throw new Error('未找到可用的音频地址');
+      const durlArr = playUrlData.durl;
+      if (durlArr && durlArr.length > 0) {
+        url = durlArr[0]!.url;
+      } else {
+        throw new Error('未找到可用的音频地址');
+      }
     }
 
     return getBilibiliProxyUrl(url);
@@ -159,10 +163,10 @@ export const searchAndGetBilibiliAudioUrl = async (keyword: string): Promise<str
     // 搜索B站视频，取第一页第一个结果
     const res = await searchBilibili({ keyword, page: 1, pagesize: 1 });
     const result = res.data?.data?.result;
-    if (!result || result.length === 0) {
+    if (!result?.length) {
       throw new Error('未找到相关B站视频');
     }
-    const first = result[0];
+    const first = result[0]!;
     const bvid = first.bvid;
     // 需要获取视频详情以获得cid
     const detailRes = await getBilibiliVideoDetail(bvid);
@@ -170,7 +174,7 @@ export const searchAndGetBilibiliAudioUrl = async (keyword: string): Promise<str
     if (!pages || pages.length === 0) {
       throw new Error('未找到视频分P信息');
     }
-    const cid = pages[0].cid;
+    const cid = pages[0]!.cid;
     // 获取音频URL
     return await getBilibiliAudioUrl(bvid, cid);
   } catch (error) {
