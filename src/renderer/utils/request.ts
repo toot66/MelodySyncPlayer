@@ -53,7 +53,7 @@ try {
 
 const request = axios.create({
   baseURL,
-  timeout: 15000,
+  timeout: 30000, // 增加超时时间到30秒，与其他请求保持一致
   withCredentials: true
 });
 

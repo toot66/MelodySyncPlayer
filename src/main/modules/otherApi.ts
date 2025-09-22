@@ -17,7 +17,7 @@ export function initializeOtherApi() {
           cmd: 302,
           keyword: keyword
         },
-        timeout: 5000
+        timeout: 10000 // 增加超时时间到10秒
       });
       return response.data;
     } catch (error: any) {

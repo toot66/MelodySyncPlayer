@@ -8,7 +8,7 @@ const baseURL = (AUTH_BASE || API_BASE || '').replace(/\/+$/, '');
 
 const request = axios.create({
   baseURL,
-  timeout: 20000
+  timeout: 30000 // 增加全局超时设置到30秒
 });
 
 // 请求拦截器
@@ -33,7 +33,7 @@ request.interceptors.response.use(
     const isNetwork = error?.message && /Network Error/i.test(error.message);
     if (!config.__retried && (isTimeout || isNetwork)) {
       config.__retried = true;
-      config.timeout = Math.min((config.timeout || 20000) * 1.5, 30000);
+      config.timeout = Math.min((config.timeout || 30000) * 1.5, 45000); // 放宽超时限制到45秒，基础值与全局超时一致
       try {
         return await request(config);
       } catch (e) {

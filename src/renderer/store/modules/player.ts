@@ -36,14 +36,14 @@ async function checkWorkerConnection(): Promise<{success: boolean, message: stri
     
     // 检查Worker健康状态
     console.log('[Player] 检查Worker状态...');
-    const healthCheck = await requestMusic.get('/health', { timeout: 5000 });
+    const healthCheck = await requestMusic.get('/health', { timeout: 10000 });
     if (healthCheck?.status !== 200) {
       return { success: false, message: `Worker健康检查失败: ${healthCheck?.status}` };
     }
     
     // 获取Worker调试信息
     console.log('[Player] 获取Worker调试信息...');
-    const debugInfo = await requestMusic.get('/debug/info', { timeout: 5000 });
+    const debugInfo = await requestMusic.get('/debug/info', { timeout: 10000 });
     
     return { 
       success: true, 
@@ -88,7 +88,7 @@ async function parseFromWorker(id: number, level: string = 'higher'): Promise<st
           encodeType: 'flac',
           device: 'mobile'
         },
-        timeout: 15000
+        timeout: 30000 // 增加超时时间到30秒，解决超时问题
       });
       
       console.log(`[Player] parseFromWorker 响应状态: ${res?.status}, 数据结构:`, 
@@ -134,7 +134,7 @@ async function parseFromWorker(id: number, level: string = 'higher'): Promise<st
         const paramsBase: any = { id, level, timestamp: Date.now() };
         // 优先 /song/url/v1
         console.log(`[Player] parseFromWorker 尝试 /song/url/v1 端点`);
-        const v1 = await requestMusic.get<any>('/song/url/v1', { params: paramsBase, timeout: 12000 });
+        const v1 = await requestMusic.get<any>('/song/url/v1', { params: paramsBase, timeout: 30000 });
         const arr = v1?.data?.data;
         if (Array.isArray(arr) && arr[0]?.url) {
           console.log(`[Player] parseFromWorker /song/url/v1 成功获取URL`);
@@ -150,7 +150,7 @@ async function parseFromWorker(id: number, level: string = 'higher'): Promise<st
     if (!finalUrl) {
       try {
         console.log(`[Player] parseFromWorker 尝试 /track/url 端点`);
-        const track = await requestMusic.get<any>('/track/url', { params: { id }, timeout: 12000 });
+        const track = await requestMusic.get<any>('/track/url', { params: { id }, timeout: 30000 });
         const arr2 = track?.data?.data;
         if (Array.isArray(arr2) && arr2[0]?.url) {
           console.log(`[Player] parseFromWorker /track/url 成功获取URL`);

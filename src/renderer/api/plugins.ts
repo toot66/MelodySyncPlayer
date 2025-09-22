@@ -34,7 +34,7 @@ export async function getRemotePlugins(): Promise<RemotePluginsResponse> {
   // 优先使用后端代理（若配置）
   if (AUTH_BASE) {
     try {
-      const { data } = await axios.get(`${AUTH_BASE}/plugins`, { timeout: 15000 });
+      const { data } = await axios.get(`${AUTH_BASE}/plugins`, { timeout: 30000 });
       return data;
     } catch (e) {
       // fallthrough 到前端直连
@@ -45,7 +45,7 @@ export async function getRemotePlugins(): Promise<RemotePluginsResponse> {
 
   for (const url of sources) {
     try {
-      const { data } = await axios.get<RemotePluginsResponse>(url, { timeout: 15000 });
+      const { data } = await axios.get<RemotePluginsResponse>(url, { timeout: 30000 });
       if (data && Array.isArray(data.plugins)) return data;
     } catch (e) {
       // 尝试下一个源
@@ -63,10 +63,10 @@ export async function getPluginCode(url: string): Promise<string> {
     const { data } = await axios.get(`${AUTH_BASE}/plugin`, {
       params: { url },
       responseType: 'text',
-      timeout: 20000
+      timeout: 30000
     });
     return data as string;
   }
-  const { data } = await axios.get(url, { responseType: 'text', timeout: 20000 });
+  const { data } = await axios.get(url, { responseType: 'text', timeout: 30000 });
   return data as string;
 }
