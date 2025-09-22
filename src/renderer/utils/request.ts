@@ -6,6 +6,16 @@ import { getSetData, isElectron, isMobile } from '.';
 
 let setData: any = null;
 
+// 确保地址包含协议，防止 "api.joytour.asia" 被当作相对路径，命中 Pages 返回 HTML
+function ensureProtocol(url?: string): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed.replace(/\/+$/, '');
+  // 既不是 http 也不是 https，则默认补 https://
+  return `https://${trimmed.replace(/\/+$/, '')}`;
+}
+
 // 扩展请求配置接口
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   retryCount?: number;
@@ -14,26 +24,30 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
 }
 
 // 解析多地址列表（浏览器端容灾）
-const API_LIST: string[] = (
-  (import.meta as any)?.env?.VITE_API_LIST as string | undefined
-)
-  ?.split(',')
-  .map((s) => s.trim())
-  .filter(Boolean) || [];
+const API_LIST: string[] =
+  ((import.meta as any)?.env?.VITE_API_LIST as string | undefined)
+    ?.split(',')
+    .map((s) => ensureProtocol(s))
+    .filter(Boolean) || [];
 
-const AUTH_BASE = ((import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined) || '';
-const API_BASE = ((import.meta as any)?.env?.VITE_API as string | undefined) || '';
+const AUTH_BASE = ensureProtocol(
+  ((import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined) || ''
+);
+const API_BASE = ensureProtocol(((import.meta as any)?.env?.VITE_API as string | undefined) || '');
 
 const getBrowserBaseURL = (index = 0): string => {
   if (API_LIST.length > 0) {
-    return (API_LIST[Math.min(index, API_LIST.length - 1)] || '').replace(/\/+$/, '');
+    return API_LIST[Math.min(index, API_LIST.length - 1)] || '';
   }
-  const chosen = (API_BASE || AUTH_BASE || '').replace(/\/+$/, '');
+  const chosen = ensureProtocol(API_BASE || AUTH_BASE || '');
   // 允许通过本地存储覆盖（紧急兜底，不依赖构建时变量）
   try {
     const override = localStorage.getItem('API_BASE_OVERRIDE');
-    if (!chosen && override) return override.replace(/\/+$/, '');
-  } catch {}
+    if (!chosen && override) return ensureProtocol(override);
+  } catch (e) {
+    // ignore storage access error (privacy mode or disabled)
+    void e;
+  }
   return chosen;
 };
 
@@ -46,10 +60,13 @@ try {
   (window as any).__API_BASE__ = baseURL;
   if (baseURL) {
     // 仅打印一次，帮助定位是否走到了 Worker
-    // eslint-disable-next-line no-console
+
     console.log('[request] baseURL =>', baseURL);
   }
-} catch {}
+} catch (e) {
+  // ignore window assignment errors in non-browser env
+  void e;
+}
 
 const request = axios.create({
   baseURL,
@@ -73,7 +90,12 @@ request.interceptors.request.use(
       config.apiIndex = idx;
       const url = getBrowserBaseURL(idx);
       config.baseURL = url;
-      try { (window as any).__API_BASE__ = url; } catch {}
+      try {
+        (window as any).__API_BASE__ = url;
+      } catch (e) {
+        // ignore assignment errors in non-browser env
+        void e;
+      }
     }
     // 只在retryCount未定义时初始化为0
     if (config.retryCount === undefined) {

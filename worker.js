@@ -35,7 +35,7 @@ export default {
       if (pathname === '/health') {
         return makeCorsResponse(json({ ok: true, ts: Date.now() }), env, request);
       }
-      
+
       // 调试端点
       if (pathname === '/debug/info') {
         const info = {
@@ -73,20 +73,42 @@ export default {
       if (pathname === '/music') {
         const u = new URL(request.url);
         const id = u.searchParams.get('id') || '';
-        if (!id) return makeCorsResponse(json({ code: 400, message: 'missing id', data: null }, 400), env, request);
+        if (!id)
+          return makeCorsResponse(
+            json({ code: 400, message: 'missing id', data: null }, 400),
+            env,
+            request
+          );
 
         const parseResp = await handleApiParse(request, env, ctx);
         if (!parseResp.ok) {
           const safe = await safeJson(parseResp.clone());
           return makeCorsResponse(
-            json({ code: safe?.code ?? parseResp.status, message: safe?.msg || safe?.message || 'parse failed', data: null }, parseResp.status),
-            env, request
+            json(
+              {
+                code: safe?.code ?? parseResp.status,
+                message: safe?.msg || safe?.message || 'parse failed',
+                data: null
+              },
+              parseResp.status
+            ),
+            env,
+            request
           );
         }
         const data = await parseResp.json();
         const urlFound = data?.data?.url || data?.url || null;
-        if (!urlFound) return makeCorsResponse(json({ code: 404, message: 'no url', data: null }, 404), env, request);
-        return makeCorsResponse(json({ code: 200, message: 'success', data: { url: urlFound } }), env, request);
+        if (!urlFound)
+          return makeCorsResponse(
+            json({ code: 404, message: 'no url', data: null }, 404),
+            env,
+            request
+          );
+        return makeCorsResponse(
+          json({ code: 200, message: 'success', data: { url: urlFound } }),
+          env,
+          request
+        );
       }
 
       // MIX 上游
@@ -127,15 +149,41 @@ function makeCorsResponse(resp, env, request) {
   }
 
   const headers = new Headers(resp.headers);
-  const rewrapped = new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
+  const rewrapped = new Response(resp.body, {
+    status: resp.status,
+    statusText: resp.statusText,
+    headers
+  });
 
   // 允许多个来源时，简单做法：若配置不是 * 则回显请求源（或直接设置为 allow）
   if (allow === '*') {
     headers.set('Access-Control-Allow-Origin', '*');
   } else {
-    const allowList = allow.split(',').map(s => s.trim()).filter(Boolean);
-    // 优先匹配请求源，如果不匹配则使用第一个配置的源，或者回退到通配符
-    const matched = allowList.includes(reqOrigin) ? reqOrigin : allowList[0];
+    const allowList = allow
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    // 支持后缀通配: 形如 "*.pages.dev"，或者当列表包含主域名时，动态放行其子域
+    const matches = (origin, rule) => {
+      if (!origin || !rule) return false;
+      if (rule === origin) return true;
+      // 显式通配符
+      if (rule.startsWith('*.')) {
+        const suffix = rule.slice(1); // like ".pages.dev"
+        return origin.endsWith(suffix);
+      }
+      try {
+        const u = new URL(origin);
+        const host = u.hostname.toLowerCase();
+        // 如果允许列表中包含 pages.dev 主域，则放行其所有子域预览
+        if (rule.includes('pages.dev')) return host.endsWith('pages.dev');
+      } catch {}
+      return false;
+    };
+
+    let matched = allowList.find((r) => matches(reqOrigin, r));
+    if (!matched) matched = allowList.includes(reqOrigin) ? reqOrigin : allowList[0];
     headers.set('Access-Control-Allow-Origin', matched || '*');
     // 当使用特定源而非通配符时，必须设置Vary: Origin
     headers.set('Vary', 'Origin');
@@ -143,18 +191,24 @@ function makeCorsResponse(resp, env, request) {
 
   // 增加更多CORS头部，确保音频文件可以正常播放
   headers.set('Access-Control-Allow-Methods', 'GET,HEAD,POST,OPTIONS');
-  headers.set('Access-Control-Allow-Headers', '*,Content-Type,Authorization,Range,Origin,Accept,Accept-Encoding');
+  headers.set(
+    'Access-Control-Allow-Headers',
+    '*,Content-Type,Authorization,Range,Origin,Accept,Accept-Encoding'
+  );
   headers.set('Access-Control-Allow-Credentials', 'true');
   headers.set('Access-Control-Max-Age', '86400'); // 缓存预检请求结果24小时
-  headers.set('Access-Control-Expose-Headers', 'Content-Length,Content-Range,Accept-Ranges,Content-Type,Content-Disposition');
-  
+  headers.set(
+    'Access-Control-Expose-Headers',
+    'Content-Length,Content-Range,Accept-Ranges,Content-Type,Content-Disposition'
+  );
+
   return rewrapped;
 }
 
 function listParseBases(env) {
   return String(env.MUSICAPI_BASE || '')
     .split(',')
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
 }
 function ncmBase(env) {
@@ -172,26 +226,45 @@ function cacheKeyFrom(url, more = {}) {
   Object.entries(more).forEach(([k, v]) => u.searchParams.set(k, String(v)));
   return new Request(u.toString(), { method: 'GET' });
 }
-async function safeJson(r) { try { return await r.json(); } catch { return {}; } }
+async function safeJson(r) {
+  try {
+    return await r.json();
+  } catch {
+    return {};
+  }
+}
 function isNcmPath(pathname) {
   return [
-    '/song/url', '/song/url/v1',
-    '/song/detail', '/cloudsearch', '/search',
-    '/banner', '/top/playlist', '/top/artists',
-    '/personalized', '/personalized/newsong',
-    '/album/new', '/album', '/playlist/detail',
-    '/user/playlist', '/user/account', '/likelist',
-    '/artist/top/song', '/artist/detail'
-  ].some(p => pathname.startsWith(p));
+    '/song/url',
+    '/song/url/v1',
+    '/song/detail',
+    '/cloudsearch',
+    '/search',
+    '/banner',
+    '/top/playlist',
+    '/top/artists',
+    '/personalized',
+    '/personalized/newsong',
+    '/album/new',
+    '/album',
+    '/playlist/detail',
+    '/user/playlist',
+    '/user/account',
+    '/likelist',
+    '/artist/top/song',
+    '/artist/detail'
+  ].some((p) => pathname.startsWith(p));
 }
 function pickNeteaseUrl(obj) {
   if (!obj || typeof obj !== 'object') return null;
   const d = obj.data;
   if (typeof d === 'string' && d.startsWith('http')) return d;
   if (Array.isArray(d)) {
-    for (const it of d) if (it?.url && typeof it.url === 'string' && it.url.startsWith('http')) return it.url;
+    for (const it of d)
+      if (it?.url && typeof it.url === 'string' && it.url.startsWith('http')) return it.url;
   }
-  if (d && typeof d === 'object' && typeof d.url === 'string' && d.url.startsWith('http')) return d.url;
+  if (d && typeof d === 'object' && typeof d.url === 'string' && d.url.startsWith('http'))
+    return d.url;
   if (typeof obj.url === 'string' && obj.url.startsWith('http')) return obj.url;
   return null;
 }
@@ -212,8 +285,12 @@ async function handleApiParse(request, env, ctx) {
   try {
     const u = new URL(request.url);
     const id = u.searchParams.get('id') || '';
-    const levelParam = (u.searchParams.get('quality') || u.searchParams.get('level') || 'higher').toLowerCase();
-    const prefer = (levelParam === 'higher' || levelParam === 'exhigh') ? '320' : '128';
+    const levelParam = (
+      u.searchParams.get('quality') ||
+      u.searchParams.get('level') ||
+      'higher'
+    ).toLowerCase();
+    const prefer = levelParam === 'higher' || levelParam === 'exhigh' ? '320' : '128';
     if (!id) return json({ code: 400, msg: 'missing id' }, 400);
 
     console.log(`[Parse] 开始解析音乐，ID: ${id}, 音质: ${prefer}`);
@@ -242,43 +319,12 @@ async function handleApiParse(request, env, ctx) {
 
     // 一轮竞速：bit 为 '320' 或 '128'
     const tryOnce = async (bit = prefer) => {
-      const makeErrorResponse = (code, msg) => {
-        const resp = json({
-          code,
-          msg,
-          error: errorSummary,
-          suggestions: [
-            '请稍后重试',
-            '尝试使用其他音质',
-            '检查音乐ID是否正确'
-          ]
-        }, code);
-        // 添加错误信息到响应头
-        resp.headers.set('X-Error-Code', String(code));
-        resp.headers.set('X-Error-Message', msg);
-        resp.headers.set('X-Parse-Attempts', String(errorSummary.attempts));
-        return resp;
-      };
-
-      const makeSuccessResponse = (url) => {
-        const resp = json({
-          code: 200,
-          msg: 'success',
-          data: { url },
-          info: successInfo
-        });
-        // 添加成功信息到响应头
-        resp.headers.set('X-Parse-Source', successInfo.source);
-        resp.headers.set('X-Parse-Quality', successInfo.quality);
-        resp.headers.set('X-Parse-Retries', String(successInfo.retryCount));
-        return resp;
-      };
       console.log(`[Parse] 开始竞速解析，音质: ${bit}`);
       const tasks = [];
       const taskErrors = [];
       const retryCount = Number(env.PARSE_RETRY_COUNT || 3);
       const retryDelay = Number(env.PARSE_RETRY_DELAY || 1000);
-      
+
       // 错误摘要对象
       const errorSummary = {
         id,
@@ -287,7 +333,7 @@ async function handleApiParse(request, env, ctx) {
         errors: [],
         lastError: null
       };
-      
+
       // 成功信息对象
       const successInfo = {
         id,
@@ -296,7 +342,7 @@ async function handleApiParse(request, env, ctx) {
         url: null,
         retryCount: 0
       };
-      
+
       // 按API可靠性排序
       const prioritizedBases = bases.sort((a, b) => {
         // 网易云音乐API优先级最高
@@ -308,136 +354,115 @@ async function handleApiParse(request, env, ctx) {
         return 0;
       });
 
-
       // 智能重试机制
-        const fetchWithRetry = async (base, path) => {
-          for (let i = 0; i < retryCount; i++) {
-            try {
-              const resp = await fetchWithTimeout(`${base}${path}`, perUpTimeout);
-              if (resp.ok) return resp;
-              console.log(`[Parse] 尝试 ${i + 1}/${retryCount} 失败: ${base}${path}`);
-            } catch (err) {
-              console.error(`[Parse] 尝试 ${i + 1}/${retryCount} 错误: ${base}${path}`, err);
-            }
-            if (i < retryCount - 1) await new Promise(r => setTimeout(r, retryDelay));
+      const fetchWithRetry = async (base, path) => {
+        for (let i = 0; i < retryCount; i++) {
+          try {
+            const resp = await fetchWithTimeout(`${base}${path}`, perUpTimeout);
+            if (resp.ok) return resp;
+            console.log(`[Parse] 尝试 ${i + 1}/${retryCount} 失败: ${base}${path}`);
+          } catch (err) {
+            console.error(`[Parse] 尝试 ${i + 1}/${retryCount} 错误: ${base}${path}`, err);
           }
-          throw new Error(`所有重试都失败: ${base}`);
-        };
+          if (i < retryCount - 1) await new Promise((r) => setTimeout(r, retryDelay));
+        }
+        throw new Error(`所有重试都失败: ${base}`);
+      };
 
-        // NCM：来自 MUSICAPI_BASE（v1 优先，回退 song/url）
-        for (const b of prioritizedBases) {
-          const baseTrim = b.replace(/\/+$/, '');
-          errorSummary.attempts++;
-          
-          const task = (async () => {
-            try {
-              // 尝试v1接口
-              const v1Path = `/song/url/v1?id=${id}&level=${bit === '320' ? 'exhigh' : 'standard'}`;
-              const resp = await fetchWithRetry(baseTrim, v1Path);
-              const data = await resp.json();
-              const url = pickNeteaseUrl(data);
-              
-              if (url) {
-                successInfo.source = baseTrim;
-                successInfo.url = url;
-                successInfo.quality = bit;
-                return makeSuccessResponse(url);
-              }
-              
-              // 回退到普通接口
-              const normalPath = `/song/url?id=${id}&br=${bit === '320' ? '320000' : '128000'}`;
-              const fallbackResp = await fetchWithRetry(baseTrim, normalPath);
-              const fallbackData = await fallbackResp.json();
-              const fallbackUrl = pickNeteaseUrl(fallbackData);
-              
-              if (fallbackUrl) {
-                successInfo.source = baseTrim;
-                successInfo.url = fallbackUrl;
-                successInfo.quality = bit;
-                return makeSuccessResponse(fallbackUrl);
-              }
-              
-              throw new Error('No valid URL found');
-            } catch (err) {
-              errorSummary.errors.push({
-                source: baseTrim,
-                error: err.message,
-                timestamp: new Date().toISOString()
-              });
-              errorSummary.lastError = err.message;
-              throw err;
+      // NCM：来自 MUSICAPI_BASE（v1 优先，回退 song/url）
+      for (const b of prioritizedBases) {
+        const baseTrim = b.replace(/\/+$/, '');
+        errorSummary.attempts++;
+
+        const task = (async () => {
+          try {
+            // 尝试v1接口
+            const v1Path = `/song/url/v1?id=${id}&level=${bit === '320' ? 'exhigh' : 'standard'}`;
+            const resp = await fetchWithRetry(baseTrim, v1Path);
+            const data = await resp.json();
+            const url = pickNeteaseUrl(data);
+
+            if (url) {
+              successInfo.source = baseTrim;
+              successInfo.url = url;
+              successInfo.quality = bit;
+              return url;
             }
-          })();
+
+            // 回退到普通接口
+            const normalPath = `/song/url?id=${id}&br=${bit === '320' ? '320000' : '128000'}`;
+            const fallbackResp = await fetchWithRetry(baseTrim, normalPath);
+            const fallbackData = await fallbackResp.json();
+            const fallbackUrl = pickNeteaseUrl(fallbackData);
+
+            if (fallbackUrl) {
+              successInfo.source = baseTrim;
+              successInfo.url = fallbackUrl;
+              successInfo.quality = bit;
+              return fallbackUrl;
+            }
+
+            throw new Error('No valid URL found');
+          } catch (err) {
+            errorSummary.errors.push({
+              source: baseTrim,
+              error: err.message,
+              timestamp: new Date().toISOString()
+            });
+            errorSummary.lastError = err.message;
+            throw err;
+          }
+        })();
 
         tasks.push(task);
-          task.catch(err => {
-            taskErrors.push(err);
-            console.error(`[Parse] API错误: ${baseTrim}`, err);
-          });
+        task.catch((err) => {
+          taskErrors.push(err);
+          console.error(`[Parse] API错误: ${baseTrim}`, err);
+        });
+      }
+
+      // 所有上游都失败，尝试NCM兜底
+      try {
+        console.log(`[Parse] 尝试NCM兜底，ID: ${id}`);
+        const ncmPath = `/song/url/v1?id=${id}&level=${bit === '320' ? 'exhigh' : 'standard'}`;
+        const ncmResp = await fetchWithRetry(ncmBase(env), ncmPath);
+        const ncmData = await ncmResp.json();
+        const ncmUrl = pickNeteaseUrl(ncmData);
+
+        if (ncmUrl) {
+          successInfo.source = 'ncm_fallback';
+          successInfo.url = ncmUrl;
+          successInfo.quality = bit;
+          return ncmUrl;
         }
-
-        // 等待任意一个成功，或全部失败
-        try {
-          const result = await Promise.race(tasks);
-          if (result?.ok) {
-            const data = await result.json();
-            if (data?.data?.url || data?.url) {
-              console.log(`[Parse] 解析成功，ID: ${id}, 音质: ${bit}`);
-              return result;
-            }
-          }
-        } catch (err) {
-          console.error(`[Parse] 竞速解析失败，ID: ${id}, 音质: ${bit}`, err);
-        }
-
-        // 所有上游都失败，尝试NCM兜底
-        try {
-          console.log(`[Parse] 尝试NCM兜底，ID: ${id}`);
-          const ncmPath = `/song/url/v1?id=${id}&level=${bit === '320' ? 'exhigh' : 'standard'}`;
-          const ncmResp = await fetchWithRetry(ncmBase(env), ncmPath);
-          const ncmData = await ncmResp.json();
-          const ncmUrl = pickNeteaseUrl(ncmData);
-          
-          if (ncmUrl) {
-            successInfo.source = 'ncm_fallback';
-            successInfo.url = ncmUrl;
-            successInfo.quality = bit;
-            return makeSuccessResponse(ncmUrl);
-          }
-        } catch (err) {
-          console.error(`[Parse] NCM兜底失败，ID: ${id}`, err);
-          errorSummary.errors.push({
-            source: 'ncm_fallback',
-            error: err.message,
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        // 全部失败，返回错误响应
-        return makeErrorResponse(404, `无法获取音乐URL (${errorSummary.attempts} 次尝试)`);
-      // 使用新的解析逻辑
-
-      // 新的解析逻辑已经包含了QQ音乐和NCM兜底的处理
-      // 在tryOnce函数中已经实现了完整的解析流程
-
+      } catch (err) {
+        console.error(`[Parse] NCM兜底失败，ID: ${id}`, err);
+        errorSummary.errors.push({
+          source: 'ncm_fallback',
+          error: err.message,
+          timestamp: new Date().toISOString()
+        });
+      }
       // 总超时
-      const total = new Promise((_, rej) => setTimeout(() => rej(new Error('total timeout')), totalTimeout));
-      
+      const total = new Promise((_, rej) =>
+        setTimeout(() => rej(new Error('total timeout')), totalTimeout)
+      );
+      // 单轮重试：对整个并发波次做最多 retryCount 次尝试
       let lastError = null;
       for (let attempt = 1; attempt <= retryCount; attempt++) {
         try {
-          const result = await Promise.any([Promise.any(tasks), total]);
+          const resultUrl = await Promise.any([Promise.any(tasks), total]);
           console.log(`[Parse] 竞速成功，音质: ${bit}，尝试次数: ${attempt}`);
-          return result;
+          return resultUrl; // 返回直链
         } catch (err) {
           lastError = err;
-          console.error(`[Parse] 竞速失败，音质: ${bit}，尝试次数: ${attempt}，错误: ${err.message}`);
+          console.error(
+            `[Parse] 竞速失败，音质: ${bit}，尝试次数: ${attempt}，错误: ${err.message}`
+          );
           console.error(`[Parse] 详细错误: ${taskErrors.join('; ')}`);
-          
           if (attempt < retryCount) {
             console.log(`[Parse] 等待${retryDelay}ms后进行第${attempt + 1}次尝试`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-            // 重置错误数组，准备下一次尝试
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
             taskErrors.length = 0;
           }
         }
@@ -447,7 +472,7 @@ async function handleApiParse(request, env, ctx) {
 
     let finalUrl = null;
     let errors = [];
-    const qualities = ['320', '128'];  // 按优先级排序的音质列表
+    const qualities = ['320', '128']; // 按优先级排序的音质列表
 
     // 智能音质切换
     for (const quality of qualities) {
@@ -468,45 +493,51 @@ async function handleApiParse(request, env, ctx) {
       const errorSummary = {
         id,
         attempts: errors.length,
-        errors: errors.map(e => e.trim()),
+        errors: errors.map((e) => e.trim()),
         apis_tried: bases.length,
         last_try: new Date().toISOString()
       };
       console.error(`[Parse] 所有解析尝试失败，详细信息:`, JSON.stringify(errorSummary, null, 2));
-      return json({ 
-        code: 504, 
-        msg: 'parse timeout or no playable url', 
-        error_details: errorSummary,
-        suggestion: '建议稍后重试或尝试其他音乐'
-      }, 504);
+      return json(
+        {
+          code: 504,
+          msg: 'parse timeout or no playable url',
+          error_details: errorSummary,
+          suggestion: '建议稍后重试或尝试其他音乐'
+        },
+        504
+      );
     }
 
     const successInfo = {
       id,
-      quality: qualities.find(q => finalUrl.includes(`&br=${q}000`)) || 'unknown',
-      source: finalUrl.includes('music.126.net') ? 'netease' : 
-              finalUrl.includes('qq.com') ? 'qq' : 'other',
+      quality: qualities.find((q) => String(finalUrl).includes(`&br=${q}000`)) || levelParam,
+      source: finalUrl.includes('music.126.net')
+        ? 'netease'
+        : finalUrl.includes('qq.com')
+          ? 'qq'
+          : 'other',
       cache_ttl: cacheTTL,
       timestamp: new Date().toISOString()
     };
-    
+
     console.log(`[Parse] 解析成功，详细信息:`, JSON.stringify(successInfo, null, 2));
     console.log(`[Parse] 解析URL: ${finalUrl.substring(0, 60)}...`);
-    
-    const resp = json({ 
-      code: 200, 
-      data: { 
-        id, 
+
+    const resp = json({
+      code: 200,
+      data: {
+        id,
         source: successInfo.source,
         quality: successInfo.quality,
-        url: finalUrl 
+        url: finalUrl
       }
     });
-    
+
     resp.headers.set('Cache-Control', `public, max-age=${cacheTTL}`);
     resp.headers.set('X-Parse-Source', successInfo.source);
     resp.headers.set('X-Parse-Quality', successInfo.quality);
-    
+
     ctx.waitUntil(cache.put(ck, resp.clone()));
     return resp;
   } catch (error) {
@@ -521,17 +552,20 @@ async function handleProxyAudio(request, env, ctx) {
     const u = new URL(request.url);
     const target = u.searchParams.get('url');
     if (!target) return json({ code: 400, msg: 'missing url' }, 400);
-    
+
     console.log(`[Audio Proxy] 处理音频代理请求: ${target.substring(0, 100)}...`);
 
     const inHeaders = request.headers;
     const outHeaders = new Headers();
 
-    const range = inHeaders.get('Range');
-    if (range) {
-      outHeaders.set('Range', range);
-      console.log(`[Audio Proxy] 包含Range请求: ${range}`);
+    let range = inHeaders.get('Range');
+    if (!range) {
+      // 默认以分段方式起播，提升与部分 CDN 的兼容性（期望 206 返回）
+      range = 'bytes=0-';
+      console.log('[Audio Proxy] 无 Range 请求，自动补为 bytes=0-');
     }
+    outHeaders.set('Range', range);
+    console.log(`[Audio Proxy] 使用的 Range: ${range}`);
 
     const ua =
       inHeaders.get('User-Agent') ||
@@ -556,30 +590,37 @@ async function handleProxyAudio(request, env, ctx) {
     }
 
     outHeaders.set('Cache-Control', 'no-cache');
+    outHeaders.set('Accept', 'audio/*;q=0.9,*/*;q=0.8');
 
     // 添加超时处理
     const fetchTimeout = 30000; // 30秒超时
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort('timeout'), fetchTimeout);
-    
+
     try {
-      const upstream = await fetch(target, { 
-        headers: outHeaders, 
-        method: 'GET', 
+      const upstream = await fetch(target, {
+        headers: outHeaders,
+        method: 'GET',
         redirect: 'follow',
         signal: controller.signal
       });
-      
+
       // 清理超时计时器
       clearTimeout(timeoutId);
-      
+
       console.log(`[Audio Proxy] 成功获取上游响应，状态码: ${upstream.status}`);
 
       // 复制并清理 hop-by-hop 头
       const respHeaders = new Headers();
       const hopByHop = new Set([
-        'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
-        'te', 'trailers', 'transfer-encoding', 'upgrade'
+        'connection',
+        'keep-alive',
+        'proxy-authenticate',
+        'proxy-authorization',
+        'te',
+        'trailers',
+        'transfer-encoding',
+        'upgrade'
       ]);
 
       upstream.headers.forEach((val, key) => {
@@ -598,7 +639,8 @@ async function handleProxyAudio(request, env, ctx) {
       if (!ct.startsWith('audio/')) {
         const lo = target.toLowerCase();
         if (lo.includes('.mp3')) ct = 'audio/mpeg';
-        else if (lo.includes('.m4a') || lo.includes('.mp4') || lo.includes('.aac')) ct = 'audio/mp4';
+        else if (lo.includes('.m4a') || lo.includes('.mp4') || lo.includes('.aac'))
+          ct = 'audio/mp4';
         else if (!ct || ct === 'application/octet-stream') ct = 'audio/mpeg';
         respHeaders.set('Content-Type', ct);
       }
@@ -607,7 +649,10 @@ async function handleProxyAudio(request, env, ctx) {
       respHeaders.set('Content-Disposition', 'inline');
 
       // 暴露长度/范围头
-      respHeaders.set('Access-Control-Expose-Headers', 'Content-Length,Content-Range,Accept-Ranges,Content-Type');
+      respHeaders.set(
+        'Access-Control-Expose-Headers',
+        'Content-Length,Content-Range,Accept-Ranges,Content-Type'
+      );
 
       return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
     } catch (fetchError) {

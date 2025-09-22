@@ -2,6 +2,7 @@ import { Howl, Howler } from 'howler';
 
 import type { SongResult } from '@/types/music';
 import { isElectron } from '@/utils'; // 导入isElectron常量
+
 import { audioEffectsService } from './AudioEffectsService';
 
 class AudioService {
@@ -362,14 +363,23 @@ class AudioService {
         this.gainNode.connect(this.context.destination);
       } else {
         // EQ 启用时，通过滤波器链连接
-        this.source.connect(this.filters[0]);
-        this.filters.forEach((filter, index) => {
-          if (index < this.filters.length - 1) {
-            filter.connect(this.filters[index + 1]);
-          }
-        });
-        // 最后一个滤波器连接到增益节点，再连接到输出
-        this.filters[this.filters.length - 1].connect(this.gainNode);
+        const hasFilters = Array.isArray(this.filters) && this.filters.length > 0;
+        if (hasFilters) {
+          // 首滤波器
+          this.source.connect(this.filters[0]!);
+          // 串联其余滤波器
+          this.filters.forEach((filter, index) => {
+            if (index < this.filters.length - 1) {
+              filter.connect(this.filters[index + 1]!);
+            }
+          });
+          // 最后一个滤波器连接到增益节点
+          this.filters[this.filters.length - 1]!.connect(this.gainNode);
+        } else {
+          // 如果没有滤波器可用，降级为直连增益节点
+          this.source.connect(this.gainNode);
+        }
+        // 增益节点连接到输出
         this.gainNode.connect(this.context.destination);
       }
     } catch (error) {

@@ -18,9 +18,22 @@ import { getImageLinearBackground } from '@/utils/linearColor';
 import { useSettingsStore } from './settings';
 import { useUserStore } from './user';
 
-// 从环境变量读取 Worker 根地址，并去掉末尾斜杠，供音频代理兜底使用
+// 确保包含协议，避免将域名当作相对路径命中 Pages 静态页面
+function ensureProtocol(url?: string): string | undefined {
+  if (!url) return undefined;
+  const t = url.trim();
+  if (!t) return undefined;
+  if (/^https?:\/\//i.test(t)) return t.replace(/\/$/, '');
+  return `https://${t.replace(/\/$/, '')}`;
+}
+
+// 从环境变量读取 Worker 根地址，并优先使用运行时 window.__API_BASE__ 覆盖（浏览器同域下统一基址）
 const AUTH_BASE_RAW = (import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined;
-const AUTH_BASE = AUTH_BASE_RAW ? AUTH_BASE_RAW.replace(/\/$/, '') : undefined;
+let AUTH_BASE = ensureProtocol(AUTH_BASE_RAW);
+try {
+  const runtimeBase = (window as any).__API_BASE__ as string | undefined;
+  if (runtimeBase) AUTH_BASE = ensureProtocol(runtimeBase);
+} catch {}
 // 调试：打印代理基址，便于确认 Web 端是否生效
 console.log('[Player] AUTH_BASE:', AUTH_BASE);
 

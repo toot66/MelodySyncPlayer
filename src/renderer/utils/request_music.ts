@@ -1,10 +1,33 @@
 import axios from 'axios';
 
+// 确保包含协议，避免将域名当作相对路径命中 Pages 静态页面
+function ensureProtocol(url?: string): string {
+  if (!url) return '';
+  const t = url.trim();
+  if (!t) return '';
+  if (/^https?:\/\//i.test(t)) return t.replace(/\/+$/, '');
+  return `https://${t.replace(/\/+$/, '')}`;
+}
+
 // Prefer Worker root (VITE_AUTH_BASE) for browser playback data and parsing,
 // fallback to VITE_API. Avoid VITE_API_MUSIC to prevent '/undefined/music'.
-const AUTH_BASE = (import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined;
-const API_BASE = (import.meta as any)?.env?.VITE_API as string | undefined;
-const baseURL = (AUTH_BASE || API_BASE || '').replace(/\/+$/, '');
+const AUTH_BASE = ensureProtocol(
+  ((import.meta as any)?.env?.VITE_AUTH_BASE as string | undefined) || ''
+);
+const API_BASE = ensureProtocol(((import.meta as any)?.env?.VITE_API as string | undefined) || '');
+let baseURL = (AUTH_BASE || API_BASE || '').replace(/\/+$/, '');
+
+// 运行时允许被 request.ts 写入的 __API_BASE__ 覆盖（浏览器同域下统一基址）
+try {
+  const runtimeBase = (window as any).__API_BASE__ as string | undefined;
+  if (runtimeBase) baseURL = ensureProtocol(runtimeBase);
+  (window as any).__API_BASE__ = baseURL;
+
+  console.log('[request_music] baseURL =>', baseURL);
+} catch (e) {
+  // ignore window assignment errors in non-browser env
+  void e;
+}
 
 const request = axios.create({
   baseURL,
