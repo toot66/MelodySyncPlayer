@@ -242,107 +242,184 @@ async function handleApiParse(request, env, ctx) {
 
     // 一轮竞速：bit 为 '320' 或 '128'
     const tryOnce = async (bit = prefer) => {
+      const makeErrorResponse = (code, msg) => {
+        const resp = json({
+          code,
+          msg,
+          error: errorSummary,
+          suggestions: [
+            '请稍后重试',
+            '尝试使用其他音质',
+            '检查音乐ID是否正确'
+          ]
+        }, code);
+        // 添加错误信息到响应头
+        resp.headers.set('X-Error-Code', String(code));
+        resp.headers.set('X-Error-Message', msg);
+        resp.headers.set('X-Parse-Attempts', String(errorSummary.attempts));
+        return resp;
+      };
+
+      const makeSuccessResponse = (url) => {
+        const resp = json({
+          code: 200,
+          msg: 'success',
+          data: { url },
+          info: successInfo
+        });
+        // 添加成功信息到响应头
+        resp.headers.set('X-Parse-Source', successInfo.source);
+        resp.headers.set('X-Parse-Quality', successInfo.quality);
+        resp.headers.set('X-Parse-Retries', String(successInfo.retryCount));
+        return resp;
+      };
       console.log(`[Parse] 开始竞速解析，音质: ${bit}`);
       const tasks = [];
       const taskErrors = [];
+      const retryCount = Number(env.PARSE_RETRY_COUNT || 3);
+      const retryDelay = Number(env.PARSE_RETRY_DELAY || 1000);
+      
+      // 错误摘要对象
+      const errorSummary = {
+        id,
+        quality: bit,
+        attempts: 0,
+        errors: [],
+        lastError: null
+      };
+      
+      // 成功信息对象
+      const successInfo = {
+        id,
+        quality: bit,
+        source: null,
+        url: null,
+        retryCount: 0
+      };
+      
+      // 按API可靠性排序
+      const prioritizedBases = bases.sort((a, b) => {
+        // 网易云音乐API优先级最高
+        if (a.includes('neteasemusic-api')) return -1;
+        if (b.includes('neteasemusic-api')) return 1;
+        // QQ音乐API次之
+        if (a.includes('qqmusicapi')) return -1;
+        if (b.includes('qqmusicapi')) return 1;
+        return 0;
+      });
 
-      // NCM：来自 MUSICAPI_BASE（v1 优先，回退 song/url）
-      for (const b of bases) {
-        const baseTrim = b.replace(/\/+$/, '');
 
-        // v1（用 level）
-        tasks.push((async () => {
-          try {
-            const lvl = bit === '320' ? 'higher' : 'standard';
-            const url = `${baseTrim}/song/url/v1?id=${encodeURIComponent(id)}&level=${lvl}`;
-            console.log(`[Parse] 尝试 NCM v1: ${url.substring(0, 60)}...`);
-            const r = await fetchWithTimeout(url, perUpTimeout);
-            if (!r.ok) throw new Error(`/song/url/v1 ${r.status}`);
-            const data = await safeJson(r);
-            const found = pickNeteaseUrl(data);
-            if (!found) throw new Error('no url in song/url/v1');
-            console.log(`[Parse] NCM v1 成功: ${found.substring(0, 60)}...`);
-            return found;
-          } catch (err) {
-            taskErrors.push(`NCM v1: ${err.message}`);
-            throw err;
+      // 智能重试机制
+        const fetchWithRetry = async (base, path) => {
+          for (let i = 0; i < retryCount; i++) {
+            try {
+              const resp = await fetchWithTimeout(`${base}${path}`, perUpTimeout);
+              if (resp.ok) return resp;
+              console.log(`[Parse] 尝试 ${i + 1}/${retryCount} 失败: ${base}${path}`);
+            } catch (err) {
+              console.error(`[Parse] 尝试 ${i + 1}/${retryCount} 错误: ${base}${path}`, err);
+            }
+            if (i < retryCount - 1) await new Promise(r => setTimeout(r, retryDelay));
           }
-        })());
+          throw new Error(`所有重试都失败: ${base}`);
+        };
 
-        // song/url（用 br）
-        tasks.push((async () => {
-          try {
-            const br = bit === '320' ? 320000 : 128000;
-            const url = `${baseTrim}/song/url?id=${encodeURIComponent(id)}&br=${br}`;
-            console.log(`[Parse] 尝试 NCM song/url: ${url.substring(0, 60)}...`);
-            const r = await fetchWithTimeout(url, perUpTimeout);
-            if (!r.ok) throw new Error(`/song/url ${r.status}`);
-            const data = await safeJson(r);
-            const found = pickNeteaseUrl(data);
-            if (!found) throw new Error('no url in song/url');
-            console.log(`[Parse] NCM song/url 成功: ${found.substring(0, 60)}...`);
-            return found;
-          } catch (err) {
-            taskErrors.push(`NCM song/url: ${err.message}`);
-            throw err;
+        // NCM：来自 MUSICAPI_BASE（v1 优先，回退 song/url）
+        for (const b of prioritizedBases) {
+          const baseTrim = b.replace(//+$/, '');
+          errorSummary.attempts++;
+          
+          const task = (async () => {
+            try {
+              // 尝试v1接口
+              const v1Path = `/song/url/v1?id=${id}&level=${bit === '320' ? 'exhigh' : 'standard'}`;
+              const resp = await fetchWithRetry(baseTrim, v1Path);
+              const data = await resp.json();
+              const url = pickNeteaseUrl(data);
+              
+              if (url) {
+                successInfo.source = baseTrim;
+                successInfo.url = url;
+                successInfo.quality = bit;
+                return makeSuccessResponse(url);
+              }
+              
+              // 回退到普通接口
+              const normalPath = `/song/url?id=${id}&br=${bit === '320' ? '320000' : '128000'}`;
+              const fallbackResp = await fetchWithRetry(baseTrim, normalPath);
+              const fallbackData = await fallbackResp.json();
+              const fallbackUrl = pickNeteaseUrl(fallbackData);
+              
+              if (fallbackUrl) {
+                successInfo.source = baseTrim;
+                successInfo.url = fallbackUrl;
+                successInfo.quality = bit;
+                return makeSuccessResponse(fallbackUrl);
+              }
+              
+              throw new Error('No valid URL found');
+            } catch (err) {
+              errorSummary.errors.push({
+                source: baseTrim,
+                error: err.message,
+                timestamp: new Date().toISOString()
+              });
+              errorSummary.lastError = err.message;
+              throw err;
+            }
+          })();
+
+        tasks.push(task);
+          task.catch(err => {
+            taskErrors.push(err);
+            console.error(`[Parse] API错误: ${baseTrim}`, err);
+          });
+        }
+
+        // 等待任意一个成功，或全部失败
+        try {
+          const result = await Promise.race(tasks);
+          if (result?.ok) {
+            const data = await result.json();
+            if (data?.data?.url || data?.url) {
+              console.log(`[Parse] 解析成功，ID: ${id}, 音质: ${bit}`);
+              return result;
+            }
           }
-        })());
+        } catch (err) {
+          console.error(`[Parse] 竞速解析失败，ID: ${id}, 音质: ${bit}`, err);
+        }
+
+        // 所有上游都失败，尝试NCM兜底
+        try {
+          console.log(`[Parse] 尝试NCM兜底，ID: ${id}`);
+          const ncmPath = `/song/url/v1?id=${id}&level=${bit === '320' ? 'exhigh' : 'standard'}`;
+          const ncmResp = await fetchWithRetry(ncmBase(env), ncmPath);
+          const ncmData = await ncmResp.json();
+          const ncmUrl = pickNeteaseUrl(ncmData);
+          
+          if (ncmUrl) {
+            successInfo.source = 'ncm_fallback';
+            successInfo.url = ncmUrl;
+            successInfo.quality = bit;
+            return makeSuccessResponse(ncmUrl);
+          }
+        } catch (err) {
+          console.error(`[Parse] NCM兜底失败，ID: ${id}`, err);
+          errorSummary.errors.push({
+            source: 'ncm_fallback',
+            error: err.message,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // 全部失败，返回错误响应
+        return makeErrorResponse(404, `无法获取音乐URL (${errorSummary.attempts} 次尝试)`);
+        // 使用新的解析逻辑
       }
 
-      // QQ（如果 MUSICAPI_BASE 某个上游支持 /qqmusic/... 则可命中）
-      for (const b of bases) {
-        const baseTrim = b.replace(/\/+$/, '');
-        tasks.push((async () => {
-          try {
-            const url = `${baseTrim}/qqmusic/${encodeURIComponent(id)}?quality=${bit}`;
-            console.log(`[Parse] 尝试 QQ: ${url.substring(0, 60)}...`);
-            const r = await fetchWithTimeout(url, perUpTimeout);
-            if (!r.ok) throw new Error(`qq ${r.status}`);
-            const result = r.url || url; // 某些上游会 302
-            console.log(`[Parse] QQ 成功: ${result.substring(0, 60)}...`);
-            return result;
-          } catch (err) {
-            taskErrors.push(`QQ: ${err.message}`);
-            throw err;
-          }
-        })());
-      }
-
-      // NCM 直连兜底（MUSIC_NCM_BASE）：v1 优先，回退 song/url
-      tasks.push((async () => {
-        try {
-          const lvl = bit === '320' ? 'higher' : 'standard';
-          const url = `${ncmFallback}/song/url/v1?id=${encodeURIComponent(id)}&level=${lvl}`;
-          console.log(`[Parse] 尝试兜底 NCM v1: ${url.substring(0, 60)}...`);
-          const r = await fetchWithTimeout(url, perUpTimeout);
-          if (!r.ok) throw new Error(`fallback v1 ${r.status}`);
-          const data = await safeJson(r);
-          const found = pickNeteaseUrl(data);
-          if (!found) throw new Error('no url in fallback v1');
-          console.log(`[Parse] 兜底 NCM v1 成功: ${found.substring(0, 60)}...`);
-          return found;
-        } catch (err) {
-          taskErrors.push(`兜底 NCM v1: ${err.message}`);
-          throw err;
-        }
-      })());
-      tasks.push((async () => {
-        try {
-          const br = bit === '320' ? 320000 : 128000;
-          const url = `${ncmFallback}/song/url?id=${encodeURIComponent(id)}&br=${br}`;
-          console.log(`[Parse] 尝试兜底 NCM song/url: ${url.substring(0, 60)}...`);
-          const r = await fetchWithTimeout(url, perUpTimeout);
-          if (!r.ok) throw new Error(`fallback song/url ${r.status}`);
-          const data = await safeJson(r);
-          const found = pickNeteaseUrl(data);
-          if (!found) throw new Error('no url in fallback song/url');
-          console.log(`[Parse] 兜底 NCM song/url 成功: ${found.substring(0, 60)}...`);
-          return found;
-        } catch (err) {
-          taskErrors.push(`兜底 NCM song/url: ${err.message}`);
-          throw err;
-        }
-      })());
+      // 新的解析逻辑已经包含了QQ音乐和NCM兜底的处理
+      // 在tryOnce函数中已经实现了完整的解析流程
 
       // 总超时
       const total = new Promise((_, rej) => setTimeout(() => rej(new Error('total timeout')), totalTimeout));
